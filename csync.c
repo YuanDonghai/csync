@@ -5,8 +5,9 @@
 #include "lib/config.h"
 #include "lib/api.h"
 #include "lib/log.h"
-//#include "lib/instance.h"
 #include "lib/monitor.h"
+#include "lib/node.h"
+#include "lib/instance.h"
 
 DWORD WINAPI thread_start_socket_server(LPVOID lpParam)
 {
@@ -33,10 +34,7 @@ int main()
 {
     set_log_params("log.txt", 0, LOG_DEBUG);
     s_log(LOG_INFO, "starting csync process.");
-
-    load_config("config.json");
-
-    int instance_counts = get_instance_counts();
+    load_config("config\\config.json");
     const int NUM_THREADS = 2;
     HANDLE threads[3];
 
@@ -44,9 +42,10 @@ int main()
     threads[1] = CreateThread(NULL, 0, thread_start_restapi_server, NULL, 0, NULL);
     threads[2] = CreateThread(NULL, 0, thread_start_monitor_server, NULL, 0, NULL);
 
-    add_instance_in_monitor("instanceid1", "test1", "D:\\WORKDIR\\csync0", "127.0.0.1", 26345);
-    add_instance_in_monitor("instanceid2", "test2", "D:\\WORKDIR\\csync0", "127.0.0.1", 26345);
-    // start_monitor_entry();
+    Sleep(1000);
+    set_nodes_json_link(get_sub_json(NEIGHBOR));
+    //set_instances_json_link
+    set_instances_json_link(get_sub_json(NEIGHBOR), get_sub_json(INSTANCE));
     WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
     for (int i = 0; i < NUM_THREADS; i++)
     {

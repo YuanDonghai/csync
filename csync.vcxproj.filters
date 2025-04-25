@@ -51,6 +51,12 @@
     <ClCompile Include="lib\monitor.c">
       <Filter>lib</Filter>
     </ClCompile>
+    <ClCompile Include="lib\node.c">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\instance.c">
+      <Filter>lib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\config.h">
@@ -87,6 +93,12 @@
       <Filter>lib</Filter>
     </ClInclude>
     <ClInclude Include="lib\protocol_sm.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\node.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\instance.h">
       <Filter>lib</Filter>
     </ClInclude>
   </ItemGroup>

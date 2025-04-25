@@ -133,10 +133,12 @@
     <ClCompile Include="lib\code.c" />
     <ClCompile Include="lib\config.c" />
     <ClCompile Include="lib\diff.c" />
+    <ClCompile Include="lib\instance.c" />
     <ClCompile Include="lib\log.c" />
     <ClCompile Include="lib\md5.c" />
     <ClCompile Include="lib\monitor.c" />
     <ClCompile Include="lib\net.c" />
+    <ClCompile Include="lib\node.c" />
     <ClCompile Include="lib\protocol.c" />
   </ItemGroup>
   <ItemGroup>
@@ -146,10 +148,12 @@
     <ClInclude Include="lib\config.h" />
     <ClInclude Include="lib\csync_error.h" />
     <ClInclude Include="lib\diff.h" />
+    <ClInclude Include="lib\instance.h" />
     <ClInclude Include="lib\log.h" />
     <ClInclude Include="lib\md5.h" />
     <ClInclude Include="lib\monitor.h" />
     <ClInclude Include="lib\net.h" />
+    <ClInclude Include="lib\node.h" />
     <ClInclude Include="lib\protocol.h" />
     <ClInclude Include="lib\protocol_sm.h" />
   </ItemGroup>
