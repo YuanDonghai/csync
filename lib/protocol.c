@@ -1,9 +1,50 @@
 #include "protocol.h"
 
+
+#if defined(_WIN32) || defined(_WIN64)
+int create_dir(const char* dirname)
+{
+    DWORD attributes = GetFileAttributesA(dirname);
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        if (CreateDirectoryA(dirname, NULL))
+        {
+            return 0;
+        }
+        else
+        {
+            s_log(LOG_ERROR, "Failed to create folder: %s. Error: %lu\n", dirname, GetLastError());
+            return -1;
+        }
+}
+
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+    {
+        return 0;
+    }
+    s_log(LOG_ERROR, "Failed to create folder: %s. path exist", dirname);
+    return -1; // 路径存在但不是目录
+}
+#elif defined(__linux__)
+int create_dir(const char* dirname)
+{
+    if (mkdir(dirname, 0755) == -1) {
+        perror("mkdir");
+        printf("Failed to create directory.\n");
+        return -1;
+    }
+    return 0;
+}
+#else
+//others
+#endif
+
+
 int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
 {
     int res = 0;
     int stable_status = 1;
+    //s_log(LOG_DEBUG,"data=%s len=%d, st=%d.",data,len,protocol->status);
     switch (protocol->status)
     {
     case READY_BASE:
@@ -20,7 +61,7 @@ int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
         break;
     case  SERVER_SEND_SIG:
         res = trans_status_on_req_send_del(data, len, protocol);
-        stable_status = 0;
+        stable_status = 0;        
         break;
     case SERVER_RECV_DEL:
     case CLIENT_SENDING_DEL:
@@ -32,6 +73,7 @@ int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
         break;
     case SERVER_RECV_END:
         res = trans_status_on_ack_del(data, len, protocol);
+
         break;
     case SERVER_RECVING_NEW:
         res = trans_status_on_recv_new(data, len, protocol);
@@ -39,6 +81,7 @@ int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
         {
             stable_status = 0;
         }
+
         break;
     default:
         break;
@@ -220,10 +263,11 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         case CLIENT_REQ_SIG:
             if (json_object_object_get_ex(parsed_json, "file", &jvalue))
             {
-                s_log(LOG_INFO, "client %s syncing file %s .", protocol->client_address, json_object_get_string(jvalue));
-                memset(protocol->patch_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(protocol->patch_name, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
-                if (FALSE == file_exist(protocol->patch_name))
+                
+                memset(protocol->file_name, 0, FILE_NAME_MAX_LENGTH);
+                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                s_log(LOG_INFO, "[server] client %s syncing file [%s] to local: [%s].", protocol->client_address, json_object_get_string(jvalue), protocol->file_name);
+                if (0 == file_exist(protocol->file_name))
                 {
                     char respon_string[RESP_DATA_MAX_LENGTH];
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
@@ -233,12 +277,12 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                     memcpy(protocol->data, respon_string, strlen(respon_string));
                     protocol->next_data_len = 0;
                     protocol->status = CLIENT_REQ_SIG;
-                    s_log(LOG_DEBUG, "[server] file %s is not existed.", protocol->patch_name);
+                    s_log(LOG_DEBUG, "[server] file %s is not existed.", protocol->file_name);
                     //add_self_task_in_queue(protocol->instance_p, 1, dir_name, json_object_get_string(jvalue),1);
                 }
                 else
                 {
-                    rdiff_sig(protocol->patch_name, protocol->sig_name);
+                    rdiff_sig(protocol->file_name, protocol->sig_name);
                     char respon_string[RESP_DATA_MAX_LENGTH];
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
                     long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
@@ -251,7 +295,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                     read_file_to_buff(protocol->sig_name, protocol->next_data, protocol->next_data_len);
                     int res = remove(protocol->sig_name);
                     protocol->status = CLIENT_REQ_SIG;
-                    s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->patch_name, sig_f_len);
+                    s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->file_name, sig_f_len);
                 }
             }
             else
@@ -262,11 +306,12 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         case CLIENT_REQ_DIR:
             if (json_object_object_get_ex(parsed_json, "dir", &jvalue))
             {
-                s_log(LOG_INFO, "client %s syncing dir %s .", protocol->client_address, json_object_get_string(jvalue));
+                s_log(LOG_INFO, "[server] client [%s] syncing dir [%s] .", protocol->client_address, json_object_get_string(jvalue));
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING,json_object_get_string(jvalue));
                 s_log(LOG_DEBUG, "[server] create dir %s .", dir_name);
+                protocol->instance_p->task_push = 1;
                 if (0 == create_dir(dir_name))
                 {
                     set_protocol_status_ok(SERVER_ACK_DIR, protocol);
@@ -277,6 +322,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 {
                     return SYNC_STATUS_ERROR_FORMAT;
                 }
+                protocol->instance_p->task_push = 0;
             }
             else
             {
@@ -289,9 +335,10 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
-                s_log(LOG_INFO, "client %s syncing file %s .", protocol->client_address, dir_name);
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING,json_object_get_string(jvalue));
+                s_log(LOG_INFO, "[server] client [%s] syncing file [%s] .", protocol->client_address, dir_name);
                 s_log(LOG_DEBUG, "[server] create file %s .", dir_name);
+                protocol->instance_p->task_push = 1;
                 if (0 == touch_file(dir_name))
                 {
                     set_protocol_status_ok(SERVER_ACK_FILE, protocol);
@@ -301,6 +348,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 {
                     return SYNC_STATUS_ERROR_FORMAT;
                 }
+                protocol->instance_p->task_push = 0;
             }
             else
             {
@@ -316,7 +364,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
 
                 memset(fname1, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
+                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path,PATH_ADD_STRING, json_object_get_string(jvalue));
 
             }
             else
@@ -327,26 +375,30 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
 
                 memset(fname2, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
+                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path,PATH_ADD_STRING, json_object_get_string(jvalue));
 
             }
             else
             {
                 return SYNC_STATUS_ERROR_FORMAT;
             }
-            s_log(LOG_INFO, "client %s rename file %s to %s .", protocol->client_address, fname1, fname2);
-            s_log(LOG_DEBUG, "[server] rename file %s %s .", fname1, fname2);
-            rename(fname1, fname2);
+            s_log(LOG_INFO, "client %s rename file %s to %s .", protocol->client_address, fname2, fname1);
+            s_log(LOG_DEBUG, "[server] rename file %s %s .", fname2, fname1);
+            protocol->instance_p->task_push = 1;
+            rename(fname2, fname1);
             set_protocol_status_ok(SERVER_RENAME_FILE, protocol);
             add_self_task_in_queue(protocol->instance_p, 5, fname1, fname2, 0);
+            protocol->instance_p->task_push =0;
             break;
         case CLIENT_DEL_FILE:
             if (json_object_object_get_ex(parsed_json, "file", &jvalue))
             {
-                s_log(LOG_INFO, "client %s delete file %s.", protocol->client_address, json_object_get_string(jvalue));
+               
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s\\%s", protocol->instance_path, json_object_get_string(jvalue));
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path,PATH_ADD_STRING, json_object_get_string(jvalue));
+                s_log(LOG_INFO, "client %s delete file %s.", protocol->client_address, dir_name);
+                protocol->instance_p->task_push = 1;
                 if (0 == remove(dir_name))
                 {
                     set_protocol_status_ok(SERVER_DEL_FILE, protocol);
@@ -356,6 +408,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 {
                     return SYNC_STATUS_ERROR_FORMAT;
                 }
+                protocol->instance_p->task_push = 0;
             }
             else
             {
@@ -415,7 +468,10 @@ int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protoc
             }
             s_log(LOG_DEBUG, "[server] client send file.file length %d .", protocol->will_recv_data_len);
             set_protocol_status_ok(CLIENT_SEND_NEW, protocol);
-            add_self_task_in_queue(protocol->instance_p, 1, protocol->patch_name, "", 0);
+            protocol->instance_p->task_push = 1;
+            add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
+            protocol->instance_p->task_push = 0;
+            s_log(LOG_DEBUG, "[server] client send file.file length %d .", protocol->will_recv_data_len);
             break;
         default:
             return SYNC_STATUS_ERROR_FORMAT;
@@ -500,8 +556,9 @@ int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* p
         fclose(file);
      //   add_self_task_in_queue(protocol->instance_p, 3, protocol->delta_name, "", 0);
     }
-    //  s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+    
     protocol->will_recv_data_len -= len;
+    s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
     if (protocol->will_recv_data_len <= 0)
     {
         if (0 != check_file_with_md5(protocol->delta_name, protocol->will_recv_checksum))
@@ -518,39 +575,55 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 {
     char ch_swap_name[FILE_NAME_MAX_LENGTH];
     memset(ch_swap_name, 0, FILE_NAME_MAX_LENGTH);
-    sprintf_s(ch_swap_name, FILE_NAME_MAX_LENGTH, "%s_swap", protocol->patch_name);
-    s_log(LOG_DEBUG, "[server] patch file to %s.", ch_swap_name);
-    rs_result res = rdiff_patch(protocol->patch_name, protocol->delta_name, ch_swap_name);
-    add_self_task_in_queue(protocol->instance_p, 1, ch_swap_name, "", 0);
-    add_self_task_in_queue(protocol->instance_p, 3, ch_swap_name, "", 0);
+    sprintf_s(ch_swap_name, FILE_NAME_MAX_LENGTH, "%s_swap", protocol->file_name);
+    s_log(LOG_DEBUG, "[server] patch file to %s.", protocol->file_name);
+    rs_result res = rdiff_patch(protocol->file_name, protocol->delta_name, protocol->patch_name);
+    protocol->instance_p->task_push = 1;
+   // add_self_task_in_queue(protocol->instance_p, 1, ch_swap_name, "", 0);
+   // add_self_task_in_queue(protocol->instance_p, 3, ch_swap_name, "", 0);
     remove(protocol->delta_name);
+   
+    add_self_task_in_queue(protocol->instance_p, 2, protocol->file_name, "", 0);
+#if defined(_WIN32) || defined(_WIN64)
+    add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
+#elif defined(__linux__)
+    add_self_task_in_queue(protocol->instance_p, 5, protocol->file_name, "", 0);
+#else
+    //others
+#endif
+    
+    remove(protocol->file_name);
+    int ress=rename(protocol->patch_name, protocol->file_name);
     remove(protocol->patch_name);
-    add_self_task_in_queue(protocol->instance_p, 2, protocol->patch_name, "", 0);
-    rename(ch_swap_name, protocol->patch_name);
     set_protocol_status_ok(SERVER_PATCHED, protocol);
+    protocol->instance_p->task_push = 0;
     return 0;
 }
 
 int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* protocol)
 {
-    FILE* file = fopen(protocol->patch_name, "ab");
+    protocol->instance_p->task_push = 1;
+    FILE* file = fopen(protocol->file_name, "ab");
     if (!file)
     {
-        s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->patch_name);
+        s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
         return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
     }
     fwrite(data, len, 1, file);
     fclose(file);
-    add_self_task_in_queue(protocol->instance_p, 3, protocol->patch_name, "", 0);
-    // s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+    add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
+    protocol->instance_p->task_push = 0;
+    
     protocol->will_recv_data_len -= len;
+    s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
     if (protocol->will_recv_data_len <= 0)
     {
-        if (0 != check_file_with_md5(protocol->patch_name, protocol->will_recv_checksum))
+        if (0 != check_file_with_md5(protocol->file_name, protocol->will_recv_checksum))
         {
+            s_log(LOG_DEBUG, "check_file_with_md5 error.");
             protocol->status = ERROR_STS;
             return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
-        }
+        }       
         set_protocol_status_ok(SERVER_RECV_NEW_END, protocol);
     }
     return 0;
@@ -562,49 +635,51 @@ int update_instance(const char* instance_id, sync_protocol* protocol)
     memset(protocol->instance_id, 0, INSTANCE_ID_LEN);
     memcpy(protocol->instance_id, instance_id, strlen(instance_id));
     get_instance_path(protocol->instance_id, ch_instance_path);
+#if defined(_WIN32) || defined(_WIN64)
     if (0 == _access(ch_instance_path, 0))
+#elif defined(__linux__)
+    if (0 == access(ch_instance_path, 0))
+#else
+    //others
+#endif
+    
     {
         memset(protocol->instance_path, 0, FILE_NAME_MAX_LENGTH);
-        sprintf_s(protocol->instance_path, FILE_NAME_MAX_LENGTH, "%s", ch_instance_path);
+        sprintf_s(protocol->instance_path, FILE_NAME_MAX_LENGTH, "%s", ch_instance_path);        
         protocol->instance_p = search_instance_p(instance_id);
+
+#if defined(_WIN32) || defined(_WIN64)
+        sprintf_s(protocol->cache_path, FILE_NAME_MAX_LENGTH, "cache\\%s\\", protocol->instance_p->id);
+#elif defined(__linux__)
+        sprintf_s(protocol->cache_path, FILE_NAME_MAX_LENGTH, "cache/%s/", protocol->instance_p->id);
+#else
+        //others
+#endif
+        if (0 == create_dir(protocol->cache_path))
+        {           
+        }
+        memset(protocol->sig_name, 0, FILE_NAME_MAX_LENGTH);       
+        sprintf_s(protocol->sig_name, FILE_NAME_MAX_LENGTH, "%s%s%d", protocol->cache_path, "sig", protocol->socket);
+        memset(protocol->delta_name, 0, FILE_NAME_MAX_LENGTH);
+        sprintf_s(protocol->delta_name, FILE_NAME_MAX_LENGTH, "%s%s%d", protocol->cache_path, "del", protocol->socket);
+        memset(protocol->patch_name, 0, FILE_NAME_MAX_LENGTH);
+        sprintf_s(protocol->patch_name, FILE_NAME_MAX_LENGTH, "%s%s%d", protocol->cache_path, "patch", protocol->socket);
         return 0;
     }
-    
+    s_log(LOG_ERROR, "file %s not .",ch_instance_path);
     return 1;
 }
 
-int create_dir(const char* dirname)
-{
-    DWORD attributes = GetFileAttributesA(dirname);
-    if (attributes == INVALID_FILE_ATTRIBUTES)
-    {
-        if (CreateDirectoryA(dirname, NULL))
-        {
-            return 0;
-        }
-        else
-        {
-            s_log(LOG_ERROR, "Failed to create folder: %s. Error: %lu\n", dirname, GetLastError());
-            return -1;
-        }
-    }
 
-    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
-    {
-        return 0;
-    }
-    s_log(LOG_ERROR, "Failed to create folder: %s. path exist", dirname);
-    return -1; // 路径存在但不是目录
-}
 
 BOOL file_exist(const char* filename)
 {
     FILE* file = fopen(filename, "rb");
     if (file) {
         fclose(file);
-        return TRUE;
+        return 1;
     }
-    return FALSE;
+    return 0;
 }
 
 int touch_file(const char* filename)
@@ -651,9 +726,9 @@ int read_file_to_buff(char* fname, char* data, long len)
 
 long get_file_length_md5(const char* file_name, char* buf)
 {
-    FILE* fp = NULL;
+    FILE* fp = fopen(file_name, "rb");
     long flen = 0;
-    errno_t err = fopen_s(&fp, file_name, "rb");
+    //errno_t err = fopen_s(&fp, file_name, "rb");
     char ch_out[32];
     char ch_out_hex[64];
     memset(ch_out, 0, 32);

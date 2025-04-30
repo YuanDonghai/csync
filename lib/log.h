@@ -6,6 +6,8 @@
 #include <time.h>
 #include <stdarg.h>
 
+#include "code.h"
+
 #define LOG_FILE_NAME_LENGTH 512
 #define SINGLE_LOG_MAX_LENGTH 4096*4
 

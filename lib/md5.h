@@ -22,6 +22,10 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "code.h"
 
 #define MD5_DIGEST_SIZE 16
 #define MD5_BLOCK_SIZE 64
@@ -73,7 +77,7 @@ void* md5_buffer(const char* buffer, size_t len, void* resblock);
    The case that the last operation on STREAM was an 'ungetc' is not supported.
    The resulting message digest number will be written into the 16 bytes
    beginning at RESBLOCK.  */
-int md5_stream(FILE** stream, void* resblock);
+int md5_stream(FILE* stream, void* resblock);
 
 
 /* Initialize structure containing state of computation.

@@ -20,8 +20,18 @@ void start_restapi_server(const char* listen_address, int port)
     char ch_url[256];
     struct mg_mgr mgr;
     mg_mgr_init(&mgr);
+#if defined(_WIN32) || defined(_WIN64)
     sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
     mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
+#elif defined(__linux__)
+    sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
+    mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
+#else
+    //others
+#endif
+
+
+   // mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
     for (;;)
     {
         mg_mgr_poll(&mgr, 1000);
@@ -51,12 +61,16 @@ int authenticate(struct mg_http_message* hm)
 // HTTP server event handler function
 static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 {
+
     if (ev == MG_EV_ACCEPT && c->fn_data != NULL)
     {
         struct mg_tls_opts opts = { .cert = mg_str_s(auth_tls_server_cert),
-                                    .key = mg_str_s(auth_tls_server_key) };
+                                    .key = mg_str_s(auth_tls_server_key)
+        };
         mg_tls_init(c, &opts);
     }
+
+
 
     if (ev == MG_EV_HTTP_MSG)
     {

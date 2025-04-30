@@ -16,9 +16,9 @@ rs_result rdiff_sig(const char* basis_name, const char* sig_name)
     rs_stats_t stats;
     rs_result result;
     rs_magic_number sig_magic;
-   
-    char* rs_hash_name=NULL;
-    char* rs_rollsum_name=NULL;
+
+    char* rs_hash_name = NULL;
+    char* rs_rollsum_name = NULL;
     int block_len = 0;
     int strong_len = 0;
     int show_stats = 0;
@@ -34,7 +34,7 @@ rs_result rdiff_sig(const char* basis_name, const char* sig_name)
 
     if (basis_file_len < LEVEL_FILE_SIZE_4K)
     {
-        block_len = 128*1024;
+        block_len = 128 * 1024;
     }
     else
     {
@@ -46,7 +46,7 @@ rs_result rdiff_sig(const char* basis_name, const char* sig_name)
         {
             if (basis_file_len < LEVEL_FILE_SIZE_64M)
             {
-                block_len = 4*1024 * 1024;
+                block_len = 4 * 1024 * 1024;
             }
             else
             {
@@ -132,7 +132,7 @@ rs_result rdiff_delta(const char* newfile_name, const char* sig_name, const char
         rs_file_close(sig_file);
         return result;
     }
-       
+
     if (show_stats)
         rs_log_stats(&stats);
 
@@ -142,7 +142,7 @@ rs_result rdiff_delta(const char* newfile_name, const char* sig_name, const char
         rs_file_close(new_file);
         rs_file_close(sig_file);
         return result;
-    }       
+    }
 
     result = rs_delta_file(sumset, new_file, delta_file, &stats);
 
@@ -186,14 +186,14 @@ rs_result rdiff_patch(const char* basis_name, const char* delta_name, const char
 }
 
 
-__int64 diff_get_file_length(char* fname)
+int64_t diff_get_file_length(char* fname)
 {
     FILE* file = fopen(fname, "rb");
     if (file == NULL) {
         perror("Failed to open file");
         return -1;
     }
-
+#if defined(_WIN32) || defined(_WIN64)
     if (_fseeki64(file, 0, SEEK_END) != 0) {
         perror("Failed to seek file");
         fclose(file);
@@ -204,6 +204,22 @@ __int64 diff_get_file_length(char* fname)
     if (fileSize == -1) {
         perror("Failed to tell file size");
     }
+#elif defined(__linux__)
+    // linux
+    if (fseek(file, 0, SEEK_END) != 0) {
+        perror("Failed to seek file");
+        fclose(file);
+        return -1;
+    }
+
+    __int64 fileSize = ftell(file);
+    if (fileSize == -1) {
+        perror("Failed to tell file size");
+    }
+#else
+    //others
+#endif
+
 
     fclose(file);
     return fileSize;

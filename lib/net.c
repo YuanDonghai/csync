@@ -1,18 +1,7 @@
 #include "net.h"
 
-int start_server(const char* listen_address, int port, enum server_io_type type)
-{
-    switch (type)
-    {
-    case SELECT:
-        break;
-    case IOCP:
-        break;
-    default:
-        break;
-    }
-    return 0;
-}
+#if defined(_WIN32) || defined(_WIN64)
+
 
 int start_server_iocp(const char* listen_address, int port)
 {
@@ -185,6 +174,7 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
 
             PerIoData->DataBuf.buf = PerIoData->Buffer + PerIoData->BytesSEND;
             PerIoData->DataBuf.len = PerIoData->BytesRECV - PerIoData->BytesSEND;
+            PerIoData->DataBuf.buf[PerIoData->DataBuf.len] = 0;
             long con_index = get_socket_connection_index(PerHandleData->Socket);
 
             while (1)
@@ -255,13 +245,108 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
     }
 }
 
+#elif defined(__linux__)
+// linux
+int start_server_linux(const char* listen_address, int port)
+{
+    initial_connection_status();
+    int server_fd, new_socket;
+
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        s_log(LOG_ERROR, "create socket error.");
+        return CREATE_SERVER_SOCKET_ERROR;
+    }
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(listen_address);
+    address.sin_port = htons(port);
+    int addrlen = sizeof(address);
+    if (inet_pton(AF_INET, listen_address, &address.sin_addr) <= 0)
+    {
+        s_log(LOG_ERROR, "inet_pton socket error.");
+        return CREATE_SERVER_SOCKET_ERROR;
+    }
+
+    if (bind(server_fd, (struct sockaddr*)&(address), sizeof(address)) < 0)
+    {
+        s_log(LOG_ERROR, "bind socket error.");
+        return BIND_ERROR;
+    }
+
+    if (listen(server_fd, MAX_CONNECTION_NUM) < 0)
+    {
+        s_log(LOG_ERROR, "listen socket error.");
+        return LISTEN_ERROR;
+    }
+    while (1)
+    {
+        s_log(LOG_DEBUG, "listen socket.");
+        new_socket = accept(server_fd, (struct sockaddr*)&(address), (socklen_t*)&(addrlen));
+
+        if (new_socket < 0)
+        {
+            s_log(LOG_ERROR, "accept error.");
+            return ACCEPT_ERROR;
+        }
+        else
+        {
+            malloc_connection_status(new_socket);
+            pthread_t accept_thread;
+            if (pthread_create(&accept_thread, NULL, linux_server_work_thread, (void*)&new_socket) < 0)
+            {
+                s_log(LOG_ERROR, "accept thread error.");
+                return ACCEPT_ERROR;
+            }
+        }
+
+    }
+    return 0;
+}
+
+void* linux_server_work_thread(void* socket_desc)
+{
+    int* socket = (int*)socket_desc;
+    int sock = *socket;
+    char buffer[4096] = { 0 };
+    int i = 0;
+    struct timespec ts;
+    long con_index = get_socket_connection_index(sock);
+    while (1)
+    {
+        int valread = read(sock, buffer, 4096);
+        if (valread <= 0)
+        {
+            s_log(LOG_ERROR, "recv error.");
+            break;
+        }
+        while (1)
+        {
+            if (1 == push_stream_to_data(buffer, valread, &conn_status[con_index]))
+            {
+                if (conn_status[con_index].data_len > 0)
+                {                   
+                    send(sock, conn_status[con_index].data, conn_status[con_index].data_len, 0);
+                }
+                post_update_status(&conn_status[con_index]);
+                break;
+            }
+        }
+    }
+}
+#else
+//others
+#endif
+
+
+
 int get_peer_address(SOCKET client_socket, char* client_address, int* port)
 {
     struct sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     if (getpeername(client_socket, (struct sockaddr*)&client_addr, &client_addr_len) == 0)
     {
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_address, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &client_addr.sin_addr, client_address, IPV4_ADDRESS_LEN);
         *port = ntohs(client_addr.sin_port);
         return 0;
     }
@@ -315,11 +400,12 @@ long malloc_connection_status(int socket)
     conn_status[index].socket = socket;
     conn_status[index].status = 0;
     conn_status[index].using_status = 1;
+   
     get_peer_address(socket, conn_status[index].client_address, &(conn_status[index].client_port));
     s_log(LOG_INFO, "client %s:%d connected.", conn_status[index].client_address, conn_status[index].client_port);
 
     memset(conn_status[index].sig_name, 0, FILE_NAME_MAX_LENGTH);
-    sprintf_s(conn_status[index].sig_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path,"sig",socket);
+    sprintf_s(conn_status[index].sig_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path, "sig", socket);
     memset(conn_status[index].delta_name, 0, FILE_NAME_MAX_LENGTH);
     sprintf_s(conn_status[index].delta_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path, "del", socket);
 

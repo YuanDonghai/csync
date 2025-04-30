@@ -1,0 +1,9 @@
+[
+  {
+    "id":"0f1a0516-1456-41c9-b386-fbf5bd78c223",
+    "name":"raspberry",
+    "address":"10.42.0.1",
+    "api_url":"https:\/\/10.42.0.1:16345",
+    "sync_port":26345
+  }
+]

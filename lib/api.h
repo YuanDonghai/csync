@@ -5,7 +5,7 @@
 #include <string.h>
 #include "log.h"
 #include "config.h"
-#include "node.h"
+#include "user.h"
 #include "instance.h"
 
 #define AUTH_ENABLE 0

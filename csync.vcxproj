@@ -138,8 +138,8 @@
     <ClCompile Include="lib\md5.c" />
     <ClCompile Include="lib\monitor.c" />
     <ClCompile Include="lib\net.c" />
-    <ClCompile Include="lib\node.c" />
     <ClCompile Include="lib\protocol.c" />
+    <ClCompile Include="lib\user.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\api.h" />
@@ -153,9 +153,9 @@
     <ClInclude Include="lib\md5.h" />
     <ClInclude Include="lib\monitor.h" />
     <ClInclude Include="lib\net.h" />
-    <ClInclude Include="lib\node.h" />
     <ClInclude Include="lib\protocol.h" />
     <ClInclude Include="lib\protocol_sm.h" />
+    <ClInclude Include="lib\user.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

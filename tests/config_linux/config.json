@@ -1,0 +1,28 @@
+{
+  "node":{
+    "name":"localhost.localdomain",
+    "id":"0f1a0516-1456-41c9-b386-fbf5bd78c223"
+  },
+  "certs":{
+    "ca": "",
+    "server_cert": "config/certs/server_cert.pem",
+    "server_key": "config/certs/server_key.pem"
+  },
+  "restapi":{
+    "port":16345,
+    "listen_address":"0.0.0.0"
+  },
+  "sync":{
+    "port":26345,
+    "listen_address":"0.0.0.0"
+  },
+  "users":{
+    "metadata":"config\/users.json"
+  },
+  "neighbors":{
+    "metadata":"config\/neighbors.json"
+  },
+  "instances":{
+    "metadata":"config\/instances.json"
+  }
+}

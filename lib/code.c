@@ -1,5 +1,6 @@
 #include "code.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 void TCHARToChar(const TCHAR* tcharStr, char* charStr, size_t charStrSize)
 {
 #ifdef UNICODE
@@ -9,6 +10,231 @@ void TCHARToChar(const TCHAR* tcharStr, char* charStr, size_t charStrSize)
     charStr[charStrSize - 1] = '\0';
 #endif
 }
+
+const char* get_hostname()
+{
+    TCHAR compute_name[MAX_COMPUTERNAME_LENGTH + 1];
+    DWORD size = sizeof(compute_name) / sizeof(TCHAR);
+    char* ch_computer_name = (char*)malloc(sizeof(char) * (MAX_COMPUTERNAME_LENGTH * 2 + 1));
+    memset(ch_computer_name, 0, MAX_COMPUTERNAME_LENGTH * 2 + 1);
+    if (!GetComputerNameW(compute_name, &size))
+    {
+        memcpy(ch_computer_name, "unkown", strlen("unkown"));
+    }
+    else
+    {
+        TCHARToChar(compute_name, ch_computer_name, MAX_COMPUTERNAME_LENGTH * 2 + 1);
+    }
+    return ch_computer_name;
+}
+
+const char* gen_uuid_str()
+{
+    char* ch_node_id = (char*)malloc(sizeof(char) * 39);
+    GUID guid;
+    HRESULT hr = CoCreateGuid(&guid);
+    if (SUCCEEDED(hr))
+    {
+        memset(ch_node_id, 0, 39);
+        WCHAR guidString[39];
+        hr = StringFromGUID2(&guid, guidString, sizeof(guidString) / sizeof(guidString[0]));
+        if (FAILED(hr) || hr == 0)
+        {
+            fprintf(stderr, "Failed to convert GUID to string\n");
+        }
+        TCHARToChar(guidString, ch_node_id, 39);
+    }
+    // clear {}
+    char* ch_node_id_without_edge = (char*)malloc(sizeof(char) * 39);
+    memset(ch_node_id_without_edge, 0, 39);
+    memcpy(ch_node_id_without_edge, &ch_node_id[1], strlen(ch_node_id) - 2);
+    return ch_node_id_without_edge;
+}
+
+void format_path(char* path)
+{
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int len = strlen(path);
+    char* swap = (char*)malloc(len * sizeof(char));
+    int exist_counts = 0;
+    for (i = 0;i < len - 1;i++)
+    {
+        if ((path[i] == '\\') && (path[i + 1] == '\\'))
+        {
+            path[i] = 0x00;
+            exist_counts++;
+        }
+        swap[j++] = path[i];
+    }
+    if (exist_counts > 0)
+    {
+        for (i = 0;i < j;i++)
+        {
+            path[i] = swap[i];
+        }
+        for (i = j;i < len;i++)
+        {
+            path[i] = 0x00;
+        }
+    }
+
+
+}
+
+wchar_t* CharToWchar(const char* charStr)
+{
+    if (charStr == NULL)
+    {
+        return NULL;
+    }
+    int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, charStr, -1, NULL, 0);
+    if (sizeNeeded == 0)
+    {
+        printf("Error determining buffer size: %lu.", GetLastError());
+        return NULL;
+    }
+
+    wchar_t* wcharStr = (wchar_t*)malloc(sizeNeeded * sizeof(wchar_t));
+    if (wcharStr == NULL)
+    {
+        printf("Memory allocation failed.");
+        return NULL;
+    }
+
+    if (MultiByteToWideChar(CP_UTF8, 0, charStr, -1, wcharStr, sizeNeeded) == 0)
+    {
+        printf("Error converting string: %lu.", GetLastError());
+        free(wcharStr);
+        return NULL;
+    }
+
+    return wcharStr;
+}
+
+int char_to_wchar(char* char_str, wchar_t* wchar_str)
+{
+    if (char_str == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, char_str, -1, NULL, 0);
+    if (sizeNeeded == 0)
+    {
+        return 0;
+    }
+    if (MultiByteToWideChar(CP_UTF8, 0, char_str, -1, wchar_str, sizeNeeded) == 0)
+    {
+        return 0;
+    }
+    wchar_str[sizeNeeded] = 0;
+    return sizeNeeded;
+}
+
+int wchar_to_char(wchar_t* wchar_str, char* char_str)
+{
+    if (wchar_str == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = WideCharToMultiByte(CP_ACP, 0, wchar_str, -1, NULL, 0, NULL, NULL);
+    if (sizeNeeded == 0)
+    {
+        return 0;
+    }
+    WideCharToMultiByte(CP_ACP, 0, wchar_str, -1, char_str, sizeNeeded, NULL, NULL);
+
+    return sizeNeeded;
+
+}
+
+void _sleep_or_Sleep(int ms)
+{
+    Sleep(ms);
+}
+#elif defined(__linux__)
+// linux
+void sprintf_s(char* buffer, size_t size_of_buffer, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, size_of_buffer, format, args);
+    va_end(args);
+}
+
+void strcat_s(char* dst_buf, size_t size_of_buffer, char* src_buf)
+{
+    strcat(dst_buf,src_buf);
+}
+
+void format_path(char* path)
+{
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int len = strlen(path);
+    char* swap = (char*)malloc(len * sizeof(char));
+    int exist_counts = 0;
+    for (i = 0;i < len - 1;i++)
+    {
+        if ((path[i] == '/') && (path[i + 1] == '/'))
+        {
+            path[i] = 0x00;
+            exist_counts++;
+        }
+        swap[j++] = path[i];
+    }
+    if (exist_counts > 0)
+    {
+        for (i = 0;i < j;i++)
+        {
+            path[i] = swap[i];
+        }
+        for (i = j;i < len;i++)
+        {
+            path[i] = 0x00;
+        }
+    }
+}
+
+const char* get_hostname()
+{
+    char hostname[256];
+    memset(hostname, 0, 256);
+    if (gethostname(hostname, sizeof(hostname)) == 0)
+    {
+        printf("hostname=%s\n",hostname);
+        //return hostname;
+        return "localhost";
+    }
+    else
+    {
+        return "localhost";
+    }
+}
+
+const char* gen_uuid_str()
+{
+    uuid_t uuid;
+    char uuid_str[37];
+    uuid_generate(uuid);
+    printf("gene uuiid\n");
+    uuid_unparse(uuid, uuid_str);
+    printf("uuid=%s\n", uuid_str);
+    uuid_str[36] = 0x00;
+    return uuid_str;
+   //return "12212";
+}
+
+void _sleep_or_Sleep(int ms)
+{
+    usleep(1000*ms);
+}
+#else
+//others
+#endif
+
 
 void trans_hex_to_ascii(char* ch_in, int len, char* ch_out)
 {
@@ -75,58 +301,34 @@ void trans_ascii_to_hex(char* ch_in, int len, char* ch_out)
     }
 }
 
-
-char* gen_node_id()
+int load_file_to_json(struct json_object** json_data, const char* file_path)
 {
-    char* ch_node_id = (char*)malloc(sizeof(char) * 39);
-    GUID guid;
-    HRESULT hr = CoCreateGuid(&guid);
-    if (SUCCEEDED(hr))
+    FILE* file = fopen(file_path, "r");
+    if (!file)
     {
-        memset(ch_node_id, 0, 39);
-        WCHAR guidString[39];
-        hr = StringFromGUID2(&guid, guidString, sizeof(guidString) / sizeof(guidString[0]));
-        if (FAILED(hr) || hr == 0)
-        {
-            fprintf(stderr, "Failed to convert GUID to string\n");
-        }
-        TCHARToChar(guidString, ch_node_id, 39);
+        return 1;
     }
-    // clear {}
-    char* ch_node_id_without_edge = (char*)malloc(sizeof(char) * 39);
-    memset(ch_node_id_without_edge, 0, 39);
-    memcpy(ch_node_id_without_edge, &ch_node_id[1], strlen(ch_node_id) - 2);
-    return ch_node_id_without_edge;
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    char* data = (char*)malloc(length + 1);
+    memset(data, 0, length + 1);
+    fread(data, 1, length, file);
+    fclose(file);
+    data[length] = '\0';
+    *json_data = json_tokener_parse(data);
+    free(data);
+    return 0;
 }
 
-void format_path(char* path)
+int dump_json_to_file(struct json_object* json_data, const char* file_path)
 {
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    int len = strlen(path);
-    char* swap = (char*)malloc(len * sizeof(char));
-    int exist_counts=0;
-    for (i = 0;i < len - 1;i++)
+    FILE* file = fopen(file_path, "w");
+    if (!file)
     {
-        if ((path[i] == '\\') && (path[i + 1] == '\\'))
-        {
-            path[i] = 0x00;
-            exist_counts++;
-        }
-        swap[j++] = path[i];
+        return 1;
     }
-    if(exist_counts>0)
-    {        
-        for(i=0;i<j;i++)
-        {
-            path[i] = swap[i];
-        }
-        for(i=j;i<len;i++)
-        {
-            path[i]=0x00;
-        }
-    }
-   
-
+    fwrite(json_object_to_json_string_ext(json_data, JSON_C_TO_STRING_PRETTY), strlen(json_object_to_json_string_ext(json_data, JSON_C_TO_STRING_PRETTY)), 1, file);
+    fclose(file);
+    return 0;
 }

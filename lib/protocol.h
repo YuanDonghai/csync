@@ -6,7 +6,7 @@
 #include <librsync.h>
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <ws2tcpip.h>
+//#include <ws2tcpip.h>
 #elif defined(__linux__)
 // linux
 #else
@@ -25,8 +25,15 @@
 #define FILE_NAME_MAX_LENGTH 4096
 #define CHECK_SUM_LEN 32+1
 #define RESP_DATA_MAX_LENGTH 4096
-#define INSTANCE_ID_LEN 32
+//#define INSTANCE_ID_LEN 32
 
+#if defined(_WIN32) || defined(_WIN64)
+#define PATH_ADD_STRING "\\"
+#elif defined(__linux__)
+#define PATH_ADD_STRING "/"
+#else
+//others
+#endif
 
 
 enum client_type
@@ -39,7 +46,7 @@ typedef struct
 {
     long index;
     int socket;
-    char client_address[INET_ADDRSTRLEN];
+    char client_address[IPV4_ADDRESS_LEN];
     int client_port;
     enum sync_status status;
     int using_status;
@@ -47,6 +54,7 @@ typedef struct
     long data_len;
     char instance_id[INSTANCE_ID_LEN];
     char instance_path[FILE_NAME_MAX_LENGTH];
+    char file_name[FILE_NAME_MAX_LENGTH];
     char patch_name[FILE_NAME_MAX_LENGTH];
     char cache_path[FILE_NAME_MAX_LENGTH];
     char sig_name[FILE_NAME_MAX_LENGTH];
@@ -57,7 +65,7 @@ typedef struct
     char will_recv_checksum[CHECK_SUM_LEN];
     size_t recv_counts;
     size_t send_counts;
-    instance_meta* instance_p;
+    struct instance_meta* instance_p;
 } sync_protocol;
 
 int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol);

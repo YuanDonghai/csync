@@ -24,18 +24,6 @@
     <ClCompile Include="lib\config.c">
       <Filter>lib</Filter>
     </ClCompile>
-    <ClCompile Include="lib\code.c">
-      <Filter>lib</Filter>
-    </ClCompile>
-    <ClCompile Include="lib\net.c">
-      <Filter>lib</Filter>
-    </ClCompile>
-    <ClCompile Include="lib\api.c">
-      <Filter>lib</Filter>
-    </ClCompile>
-    <ClCompile Include="lib\protocol.c">
-      <Filter>lib</Filter>
-    </ClCompile>
     <ClCompile Include="lib\diff.c">
       <Filter>lib</Filter>
     </ClCompile>
@@ -45,16 +33,28 @@
     <ClCompile Include="lib\log.c">
       <Filter>lib</Filter>
     </ClCompile>
-    <ClCompile Include="lib\client.c">
+    <ClCompile Include="lib\instance.c">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\user.c">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\code.c">
       <Filter>lib</Filter>
     </ClCompile>
     <ClCompile Include="lib\monitor.c">
       <Filter>lib</Filter>
     </ClCompile>
-    <ClCompile Include="lib\node.c">
+    <ClCompile Include="lib\client.c">
       <Filter>lib</Filter>
     </ClCompile>
-    <ClCompile Include="lib\instance.c">
+    <ClCompile Include="lib\net.c">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\protocol.c">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\api.c">
       <Filter>lib</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,15 +68,6 @@
     <ClInclude Include="lib\code.h">
       <Filter>lib</Filter>
     </ClInclude>
-    <ClInclude Include="lib\net.h">
-      <Filter>lib</Filter>
-    </ClInclude>
-    <ClInclude Include="lib\api.h">
-      <Filter>lib</Filter>
-    </ClInclude>
-    <ClInclude Include="lib\protocol.h">
-      <Filter>lib</Filter>
-    </ClInclude>
     <ClInclude Include="lib\diff.h">
       <Filter>lib</Filter>
     </ClInclude>
@@ -86,19 +77,28 @@
     <ClInclude Include="lib\log.h">
       <Filter>lib</Filter>
     </ClInclude>
+    <ClInclude Include="lib\instance.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\user.h">
+      <Filter>lib</Filter>
+    </ClInclude>
     <ClInclude Include="lib\client.h">
       <Filter>lib</Filter>
     </ClInclude>
     <ClInclude Include="lib\monitor.h">
       <Filter>lib</Filter>
     </ClInclude>
+    <ClInclude Include="lib\net.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\protocol.h">
+      <Filter>lib</Filter>
+    </ClInclude>
     <ClInclude Include="lib\protocol_sm.h">
       <Filter>lib</Filter>
     </ClInclude>
-    <ClInclude Include="lib\node.h">
-      <Filter>lib</Filter>
-    </ClInclude>
-    <ClInclude Include="lib\instance.h">
+    <ClInclude Include="lib\api.h">
       <Filter>lib</Filter>
     </ClInclude>
   </ItemGroup>

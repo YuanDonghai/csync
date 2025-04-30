@@ -1,0 +1,26 @@
+{
+  "workspaces":[
+    {
+      "id":"EE386E60-9B14-4390-8555-F31F05901A34",
+      "name":"csync0",
+      "path":"D:\\WORKDIR\\csync0",
+      "type":2
+    },
+    {
+      "id": "EE386E60-9B14-4390-8555-F31F05901A35",
+      "name": "csync0-test",
+      "path": "D:\\WORKDIR\\csync0\\test",
+      "type": 2
+    }
+  ],
+  "instances":[
+    {
+      "id":"EE386E60-9B14-4390-8555-F31F05901B34",
+      "wss_id":"EE386E60-9B14-4390-8555-F31F05901A34",
+      "name":"csync0_instance",
+      "peer_node":"0f1a0516-1456-41c9-b386-fbf5bd78c223",
+      "peer_iid":"EE386E60-9B14-4390-8555-F31F05901B33",
+      "type":2
+    }
+  ]
+}
