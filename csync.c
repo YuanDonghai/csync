@@ -6,7 +6,7 @@
 #include "lib/instance.h"
 #include "lib/monitor.h"
 #include "lib/net.h"
-#include "api.h"
+#include "lib/api.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)

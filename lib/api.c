@@ -24,8 +24,8 @@ void start_restapi_server(const char* listen_address, int port)
     sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
     mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
 #elif defined(__linux__)
-    sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
-    mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
+    sprintf_s(ch_url, 256, "http://%s:%d", listen_address, port);
+    mg_http_listen(&mgr, ch_url, ev_handler, NULL);
 #else
     //others
 #endif

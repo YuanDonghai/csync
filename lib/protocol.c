@@ -143,7 +143,7 @@ void post_update_status(sync_protocol* protocol)
         free(protocol->data);
         break;
     case ERROR_STS:
-        protocol->status = READY_BASE;
+        protocol->status = READY_SYNC;
         protocol->data_len = 0;
         free(protocol->data);
         break;

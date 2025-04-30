@@ -77,7 +77,6 @@ int load_default_base_config(const char* file_path)
     {
         s_log(LOG_ERROR, "json add error");
     }
-    printf(" config:\n%s\n",json_object_get_string(base_config));
     // save
     dump_json_to_file(base_config, file_path);
 }

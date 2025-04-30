@@ -79,7 +79,7 @@ char* _node_add_nodes(const char* body_json)
     return "{}";
 }
 
-int get_node_address_port(char* node_id, char* address, int* port,int * os_type)
+int get_node_address_port(char* node_id, char* address, int* port, int* os_type)
 {
     int array_length = json_object_array_length(nodes_json);
     for (int i = 0; i < array_length; i++)
@@ -153,7 +153,7 @@ int get_node_address_port(char* node_id, char* address, int* port,int * os_type)
 
 void load_instances_meta()
 {
-   
+
     // workspace and instance list
     workspace_list = json_object_new_array();
     instances_list = json_object_new_array();
@@ -163,6 +163,7 @@ void load_instances_meta()
     }
     else
     {
+        s_log(LOG_DEBUG, "load workspace list, workspace is empty.");
         return;
     }
     if (json_object_object_get_ex(instances_json, "instances", &instances_list))
@@ -171,10 +172,12 @@ void load_instances_meta()
     }
     else
     {
+        s_log(LOG_DEBUG, "load instance list, instance is empty.");
         return;
     }
 
     // push instances
+    /*
     char in_id[256];
     char peer_id[256];
     char in_name[256];
@@ -184,18 +187,28 @@ void load_instances_meta()
     char path[FILE_PATH_MAX_LEN];
     int port;
     int type;
-
-   
+*/
+    char wss_id[256];
+    char in_node_id[256];
     struct instance_meta* push_ins = (struct instance_meta*)malloc(sizeof(struct instance_meta));
     int array_length = json_object_array_length(instances_list);
     for (int i = 0; i < array_length; i++)
     {
         struct json_object* in_val = json_object_array_get_idx(instances_list, i);
         struct json_object* in_value_obj;
+
+        if (json_object_object_get_ex(in_val, "id", &in_value_obj))
+        {
+            sprintf_s(push_ins->id, INSTANCE_ID_LEN, "%s", json_object_get_string(in_value_obj));
+        }
+        else
+        {
+            continue;
+        }
+
         if (json_object_object_get_ex(in_val, "type", &in_value_obj))
         {
-            type = json_object_get_int(in_value_obj);
-            if (type == 0)
+            if (0 == json_object_get_int(in_value_obj))
             {
                 continue;
             }
@@ -204,19 +217,10 @@ void load_instances_meta()
         {
             continue;
         }
-       
-        if (json_object_object_get_ex(in_val, "id", &in_value_obj))
-        {
-            sprintf_s(in_id, 256, "%s", json_object_get_string(in_value_obj));
-            sprintf_s(push_ins->id, INSTANCE_ID_LEN, "%s", json_object_get_string(in_value_obj));
-        }
-        else
-        {
-            continue;
-        }
+
+
         if (json_object_object_get_ex(in_val, "peer_iid", &in_value_obj))
         {
-            sprintf_s(peer_id, 256, "%s", json_object_get_string(in_value_obj));
             sprintf_s(push_ins->peer_id, INSTANCE_ID_LEN, "%s", json_object_get_string(in_value_obj));
         }
         else
@@ -225,7 +229,6 @@ void load_instances_meta()
         }
         if (json_object_object_get_ex(in_val, "name", &in_value_obj))
         {
-            sprintf_s(in_name, 256, "%s", json_object_get_string(in_value_obj));
             sprintf_s(push_ins->name, INSTANCE_NAME_LEN, "%s", json_object_get_string(in_value_obj));
         }
         else
@@ -258,16 +261,12 @@ void load_instances_meta()
         {
             continue;
         }
-       
 
-        sprintf_s(path, FILE_PATH_MAX_LEN, "%s", get_workspace_path(wss_id));
         sprintf_s(push_ins->path, FILE_PATH_MAX_LEN, "%s", get_workspace_path(wss_id));
-        if (0 < strlen(path))
+        if (0 < strlen(push_ins->path))
         {
-            //s_log(LOG_INFO, "loading instance: %s, name=%s, path=%s, node=%s:%d.", in_id, in_name, path, in_peer_addr, port);
            // add_instance_in_monitor(in_id, peer_id,in_name, path, in_peer_addr, port);
             add_instance_in_monitor_s(push_ins);
-           // Sleep(1);
             _sleep_or_Sleep(1);
         }
         else
@@ -307,8 +306,6 @@ char* get_workspace_path(const char* ws_id)
     return "";
 }
 
-
-
 void get_instance_path(const char* id, char* path)
 {
     int array_length = json_object_array_length(instances_list);
@@ -334,7 +331,7 @@ void get_instance_path(const char* id, char* path)
         {
             continue;
         }
-    }  
+    }
 }
 
 char* _instance_get_workspace()

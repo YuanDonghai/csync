@@ -49,9 +49,6 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             {
                 client_sync_file(client_socket, ch_path, short_name);
             }
-
-
-
         }
     }
 
