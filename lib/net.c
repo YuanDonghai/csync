@@ -1,7 +1,6 @@
 #include "net.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-
+#if defined(_WIN32) || defined(_WIN64) // fow windwos
 
 int start_server_iocp(const char* listen_address, int port)
 {
@@ -50,7 +49,7 @@ int start_server_iocp(const char* listen_address, int port)
         s_log(LOG_ERROR, "inet_pton failed");
         return 1;
     }
-    // server_info.server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
     server_info.server_addr.sin_port = htons(port);
     if (bind(server_info.server_socket, (PSOCKADDR)&server_info.server_addr, sizeof(server_info.server_addr)) == SOCKET_ERROR)
     {
@@ -169,14 +168,11 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
 
         if (PerIoData->BytesRECV > PerIoData->BytesSEND)
         {
-
             ZeroMemory(&(PerIoData->Overlapped), sizeof(OVERLAPPED));
-
             PerIoData->DataBuf.buf = PerIoData->Buffer + PerIoData->BytesSEND;
             PerIoData->DataBuf.len = PerIoData->BytesRECV - PerIoData->BytesSEND;
             PerIoData->DataBuf.buf[PerIoData->DataBuf.len] = 0;
             long con_index = get_socket_connection_index(PerHandleData->Socket);
-
             while (1)
             {
                 if (1 == push_stream_to_data(PerIoData->DataBuf.buf, PerIoData->DataBuf.len, &conn_status[con_index]))
@@ -185,7 +181,6 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
                     {
                         PerIoData->DataBuf.buf = conn_status[con_index].data;
                         PerIoData->DataBuf.len = conn_status[con_index].data_len;
-
                         if (WSASend(PerHandleData->Socket, &(PerIoData->DataBuf), 1, &SendBytes, 0,
                             &(PerIoData->Overlapped), NULL) == SOCKET_ERROR)
                         {
@@ -199,13 +194,10 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
                     else
                     {
                         PerIoData->BytesRECV = 0;
-
                         Flags = 0;
                         ZeroMemory(&(PerIoData->Overlapped), sizeof(OVERLAPPED));
-
                         PerIoData->DataBuf.len = SOCKET_BUFFER_LEN;
                         PerIoData->DataBuf.buf = PerIoData->Buffer;
-
                         if (WSARecv(PerHandleData->Socket, &(PerIoData->DataBuf), 1, &RecvBytes, &Flags,
                             &(PerIoData->Overlapped), NULL) == SOCKET_ERROR)
                         {
@@ -217,7 +209,6 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
                         }
                     }
                     post_update_status(&conn_status[con_index]);
-
                     break;
                 }
             }
@@ -225,15 +216,11 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id)
         else
         {
             PerIoData->BytesRECV = 0;
-
             Flags = 0;
             ZeroMemory(&(PerIoData->Overlapped), sizeof(OVERLAPPED));
-
             PerIoData->DataBuf.len = SOCKET_BUFFER_LEN;
             PerIoData->DataBuf.buf = PerIoData->Buffer;
-
-            if (WSARecv(PerHandleData->Socket, &(PerIoData->DataBuf), 1, &RecvBytes, &Flags,
-                &(PerIoData->Overlapped), NULL) == SOCKET_ERROR)
+            if (WSARecv(PerHandleData->Socket, &(PerIoData->DataBuf), 1, &RecvBytes, &Flags, &(PerIoData->Overlapped), NULL) == SOCKET_ERROR)
             {
                 if (WSAGetLastError() != ERROR_IO_PENDING)
                 {
@@ -281,9 +268,7 @@ int start_server_linux(const char* listen_address, int port)
     }
     while (1)
     {
-        s_log(LOG_DEBUG, "listen socket.");
         new_socket = accept(server_fd, (struct sockaddr*)&(address), (socklen_t*)&(addrlen));
-
         if (new_socket < 0)
         {
             s_log(LOG_ERROR, "accept error.");
@@ -317,7 +302,7 @@ void* linux_server_work_thread(void* socket_desc)
         int valread = read(sock, buffer, 4096);
         if (valread <= 0)
         {
-            s_log(LOG_ERROR, "recv error.");
+            s_log(LOG_ERROR, "client %d closed.", sock);
             break;
         }
         while (1)
@@ -325,7 +310,7 @@ void* linux_server_work_thread(void* socket_desc)
             if (1 == push_stream_to_data(buffer, valread, &conn_status[con_index]))
             {
                 if (conn_status[con_index].data_len > 0)
-                {                   
+                {
                     send(sock, conn_status[con_index].data, conn_status[con_index].data_len, 0);
                 }
                 post_update_status(&conn_status[con_index]);
@@ -333,12 +318,11 @@ void* linux_server_work_thread(void* socket_desc)
             }
         }
     }
+    close(sock);
 }
 #else
 //others
 #endif
-
-
 
 int get_peer_address(SOCKET client_socket, char* client_address, int* port)
 {
@@ -369,6 +353,7 @@ void initial_connection_status()
         sprintf_s(conn_status[i].cache_path, FILE_NAME_MAX_LENGTH, "cache\\");
     }
 }
+
 long get_idle_connection_index()
 {
     for (long i = 0;i < MAX_CONNECTION_NUM;i++)
@@ -381,36 +366,34 @@ long get_idle_connection_index()
     }
     return -1;
 }
+
 long get_socket_connection_index(int socket)
 {
     for (long i = 0;i < MAX_CONNECTION_NUM;i++)
     {
         if (conn_status[i].socket == socket)
         {
-
             return i;
         }
-
     }
     return -1;
 }
+
 long malloc_connection_status(int socket)
 {
     long index = get_idle_connection_index();
     conn_status[index].socket = socket;
     conn_status[index].status = 0;
     conn_status[index].using_status = 1;
-   
     get_peer_address(socket, conn_status[index].client_address, &(conn_status[index].client_port));
     s_log(LOG_INFO, "client %s:%d connected.", conn_status[index].client_address, conn_status[index].client_port);
-
     memset(conn_status[index].sig_name, 0, FILE_NAME_MAX_LENGTH);
     sprintf_s(conn_status[index].sig_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path, "sig", socket);
     memset(conn_status[index].delta_name, 0, FILE_NAME_MAX_LENGTH);
     sprintf_s(conn_status[index].delta_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path, "del", socket);
-
     return index;
 }
+
 void reset_connection_status(int socket)
 {
     for (long i = 0;i < MAX_CONNECTION_NUM;i++)
@@ -420,7 +403,6 @@ void reset_connection_status(int socket)
             conn_status[i].socket = 0;
             conn_status[i].status = READY_SYNC;
             conn_status[i].using_status = 0;
-
             if (conn_status[i].data_len > 0)
             {
                 conn_status[i].data_len = 0;

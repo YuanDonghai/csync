@@ -17,7 +17,6 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <arpa/inet.h>
-
 #else
 //others
 #endif
@@ -46,7 +45,6 @@ typedef struct
     SOCKET Socket;
 } PER_HANDLE_DATA, * LPPER_HANDLE_DATA;
 
-
 typedef struct
 {
     SOCKET server_socket;
@@ -63,20 +61,15 @@ DWORD WINAPI iocp_server_work_thread(LPVOID iocp_id);
 // linux
 typedef int SOCKET;
 int start_server_linux(const char* listen_address, int port);
-void *linux_server_work_thread(void * socket_desc);
+void* linux_server_work_thread(void* socket_desc);
 #else
 //others
 #endif
 
 /*static sync flags*/
 static sync_protocol conn_status[MAX_CONNECTION_NUM];
-
-
-
-
 /* socket extend*/
 int get_peer_address(SOCKET client_socket, char* client_address, int* port);
-
 /* protocol */
 void initial_connection_status();
 long malloc_connection_status(int socket);

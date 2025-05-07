@@ -8,8 +8,9 @@
 #include "user.h"
 #include "instance.h"
 
-#define AUTH_ENABLE 0
+#define AUTH_ENABLE 1
 #define VERSION "v1"
+#define MAX_LOGIN_TOKENS 64
 
 enum api_controller_path {
     API_ROOT,
@@ -53,10 +54,14 @@ static char auth_tls_server_cert[4096];
 static char auth_tls_server_key[4096];
 static char rest_api_pass[64];
 
+static char tokens[MAX_LOGIN_TOKENS][129];
+
 void start_restapi_server(const char* listen_address, int port);
 static void ev_handler(struct mg_connection* c, int ev, void* ev_data);
 
 int authenticate(struct mg_http_message* hm);
+int authenticate_token(const char token);
+
 void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_data);
 int search_route_index(struct mg_http_message* hm);
 int search_method_index(struct mg_http_message* hm);

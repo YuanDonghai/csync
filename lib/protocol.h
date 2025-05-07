@@ -35,7 +35,6 @@
 //others
 #endif
 
-
 enum client_type
 {
     NULL_OPT = 0,
@@ -83,7 +82,6 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* protocol);
 
 int update_instance(const char* instance_id, sync_protocol* protocol);
-
 int create_dir(const char* dirname);
 BOOL file_exist(const char* filename);
 int touch_file(const char* filename);

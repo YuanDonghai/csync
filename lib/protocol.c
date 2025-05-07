@@ -1,7 +1,7 @@
 #include "protocol.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-int create_dir(const char *dirname)
+int create_dir(const char* dirname)
 {
     DWORD attributes = GetFileAttributesA(dirname);
     if (attributes == INVALID_FILE_ATTRIBUTES)
@@ -22,15 +22,13 @@ int create_dir(const char *dirname)
         return 0;
     }
     s_log(LOG_ERROR, "Failed to create folder: %s. path exist", dirname);
-    return -1; // 路径存在但不是目录
+    return -1;
 }
 #elif defined(__linux__)
-int create_dir(const char *dirname)
+int create_dir(const char* dirname)
 {
     if (mkdir(dirname, 0755) == -1)
     {
-        perror("mkdir");
-        printf("Failed to create directory.\n");
         return -1;
     }
     return 0;
@@ -39,11 +37,10 @@ int create_dir(const char *dirname)
 // others
 #endif
 
-int push_stream_to_data(char *data, unsigned long len, sync_protocol *protocol)
+int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
 {
     int res = 0;
     int stable_status = 1;
-    // s_log(LOG_DEBUG,"data=%s len=%d, st=%d.",data,len,protocol->status);
     switch (protocol->status)
     {
     case READY_BASE:
@@ -80,7 +77,6 @@ int push_stream_to_data(char *data, unsigned long len, sync_protocol *protocol)
         {
             stable_status = 0;
         }
-
         break;
     default:
         break;
@@ -97,7 +93,7 @@ int push_stream_to_data(char *data, unsigned long len, sync_protocol *protocol)
     }
     return stable_status;
 }
-void post_update_status(sync_protocol *protocol)
+void post_update_status(sync_protocol* protocol)
 {
     switch (protocol->status)
     {
@@ -171,7 +167,7 @@ void post_update_status(sync_protocol *protocol)
     }
 }
 
-void reset_status(sync_protocol *protocol)
+void reset_status(sync_protocol* protocol)
 {
     protocol->status = READY_SYNC;
     if (protocol->data_len > 0)
@@ -186,37 +182,37 @@ void reset_status(sync_protocol *protocol)
     }
 }
 
-void set_protocol_status_error(sync_protocol *protocol)
+void set_protocol_status_error(sync_protocol* protocol)
 {
     protocol->data_len = (long)strlen("{\"result\":\"error\"}");
-    protocol->data = (char *)malloc(sizeof(char) * protocol->data_len);
+    protocol->data = (char*)malloc(sizeof(char) * protocol->data_len);
     memcpy(protocol->data, "{\"result\":\"error\"}", protocol->data_len);
     protocol->status = ERROR_STS;
 }
 
-void set_protocol_status_ok(enum sync_status status, sync_protocol *protocol)
+void set_protocol_status_ok(enum sync_status status, sync_protocol* protocol)
 {
     protocol->status = status;
     protocol->data_len = (long)strlen("{\"result\":\"ok\"}");
-    protocol->data = (char *)malloc(sizeof(char) * protocol->data_len);
+    protocol->data = (char*)malloc(sizeof(char) * protocol->data_len);
     memcpy(protocol->data, "{\"result\":\"ok\"}", protocol->data_len);
 }
 
-int trans_status_on_path(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_path(char* data, unsigned long len, sync_protocol* protocol)
 {
-    struct json_object *parsed_json;
+    struct json_object* parsed_json;
     parsed_json = json_tokener_parse(data);
     if (!parsed_json)
     {
         s_log(LOG_ERROR, "Error parsing JSON.");
         return SYNC_STATUS_ERROR_FORMAT;
     }
-    struct json_object *jtype;
+    struct json_object* jtype;
     if (json_object_object_get_ex(parsed_json, "type", &jtype))
     {
         if (PATH_SYNC == json_object_get_int(jtype))
         {
-            struct json_object *jvalue;
+            struct json_object* jvalue;
             if (json_object_object_get_ex(parsed_json, "id", &jvalue))
             {
                 if (0 == update_instance(json_object_get_string(jvalue), protocol))
@@ -242,9 +238,9 @@ int trans_status_on_path(char *data, unsigned long len, sync_protocol *protocol)
     return 0;
 }
 
-int trans_status_on_ready(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol)
 {
-    struct json_object *parsed_json;
+    struct json_object* parsed_json;
     parsed_json = json_tokener_parse(data);
     if (!parsed_json)
     {
@@ -252,12 +248,12 @@ int trans_status_on_ready(char *data, unsigned long len, sync_protocol *protocol
         return SYNC_STATUS_ERROR_FORMAT;
     }
 
-    struct json_object *jtype;
+    struct json_object* jtype;
     char fname1[FILE_NAME_MAX_LENGTH];
     char fname2[FILE_NAME_MAX_LENGTH];
     if (json_object_object_get_ex(parsed_json, "type", &jtype))
     {
-        struct json_object *jvalue;
+        struct json_object* jvalue;
         switch (json_object_get_int(jtype))
         {
         case CLIENT_REQ_SIG:
@@ -272,7 +268,7 @@ int trans_status_on_ready(char *data, unsigned long len, sync_protocol *protocol
                     char respon_string[RESP_DATA_MAX_LENGTH];
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
                     sprintf_s(respon_string, RESP_DATA_MAX_LENGTH, "{\"type\": %d,\"length\": 0,\"checksum\":\"\"}", SERVER_ACK_SIG);
-                    protocol->data = (char *)malloc(sizeof(char) * strlen(respon_string));
+                    protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
                     protocol->data_len = strlen(respon_string);
                     memcpy(protocol->data, respon_string, strlen(respon_string));
                     protocol->next_data_len = 0;
@@ -287,11 +283,11 @@ int trans_status_on_ready(char *data, unsigned long len, sync_protocol *protocol
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
                     long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
                     sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":%ld,\"checksum\":\"%s\"}", SERVER_ACK_SIG, sig_f_len, protocol->will_recv_checksum);
-                    protocol->data = (char *)malloc(sizeof(char) * strlen(respon_string));
+                    protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
                     protocol->data_len = strlen(respon_string);
                     memcpy(protocol->data, respon_string, strlen(respon_string));
                     protocol->next_data_len = sig_f_len;
-                    protocol->next_data = (char *)malloc(sizeof(char) * protocol->next_data_len);
+                    protocol->next_data = (char*)malloc(sizeof(char) * protocol->next_data_len);
                     read_file_to_buff(protocol->sig_name, protocol->next_data, protocol->next_data_len);
                     int res = remove(protocol->sig_name);
                     protocol->status = CLIENT_REQ_SIG;
@@ -426,9 +422,9 @@ int trans_status_on_ready(char *data, unsigned long len, sync_protocol *protocol
     return 0;
 }
 
-int trans_status_on_ack_sig(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protocol)
 {
-    struct json_object *parsed_json;
+    struct json_object* parsed_json;
     parsed_json = json_tokener_parse(data);
     if (!parsed_json)
     {
@@ -436,15 +432,15 @@ int trans_status_on_ack_sig(char *data, unsigned long len, sync_protocol *protoc
         return SYNC_STATUS_ERROR_FORMAT;
     }
 
-    struct json_object *jtype;
-    struct json_object *jvalue;
+    struct json_object* jtype;
+    struct json_object* jvalue;
     if (json_object_object_get_ex(parsed_json, "type", &jtype))
     {
         switch (json_object_get_int(jtype))
         {
         case CLIENT_RECV_SIG:
             s_log(LOG_DEBUG, "[server] client get signature. sig file length %d .", protocol->next_data_len);
-            protocol->data = (char *)malloc(sizeof(char) * protocol->next_data_len);
+            protocol->data = (char*)malloc(sizeof(char) * protocol->next_data_len);
             protocol->data_len = protocol->next_data_len;
             memcpy(protocol->data, protocol->next_data, protocol->next_data_len);
             protocol->next_data_len = 0;
@@ -483,9 +479,9 @@ int trans_status_on_ack_sig(char *data, unsigned long len, sync_protocol *protoc
     return 0;
 }
 
-int trans_status_on_req_send_del(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_req_send_del(char* data, unsigned long len, sync_protocol* protocol)
 {
-    struct json_object *parsed_json;
+    struct json_object* parsed_json;
     parsed_json = json_tokener_parse(data);
     if (!parsed_json)
     {
@@ -493,12 +489,12 @@ int trans_status_on_req_send_del(char *data, unsigned long len, sync_protocol *p
         return SYNC_STATUS_ERROR_FORMAT;
     }
 
-    struct json_object *jtype;
+    struct json_object* jtype;
     if (json_object_object_get_ex(parsed_json, "type", &jtype))
     {
         if (CLIENT_SEND_DEL == json_object_get_int(jtype))
         {
-            struct json_object *jvalue;
+            struct json_object* jvalue;
             if (json_object_object_get_ex(parsed_json, "length", &jvalue))
             {
                 protocol->will_recv_data_len = json_object_get_int(jvalue);
@@ -525,11 +521,11 @@ int trans_status_on_req_send_del(char *data, unsigned long len, sync_protocol *p
     return 0;
 }
 
-int trans_status_on_ack_send_del(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* protocol)
 {
     if (protocol->status == SERVER_RECV_DEL)
     {
-        FILE *file = fopen(protocol->delta_name, "wb");
+        FILE* file = fopen(protocol->delta_name, "wb");
         if (!file)
         {
             s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->delta_name);
@@ -543,7 +539,7 @@ int trans_status_on_ack_send_del(char *data, unsigned long len, sync_protocol *p
     }
     else
     {
-        FILE *file = fopen(protocol->delta_name, "ab");
+        FILE* file = fopen(protocol->delta_name, "ab");
         if (!file)
         {
             s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->delta_name);
@@ -568,7 +564,7 @@ int trans_status_on_ack_send_del(char *data, unsigned long len, sync_protocol *p
     return 0;
 }
 
-int trans_status_on_ack_del(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protocol)
 {
     char ch_swap_name[FILE_NAME_MAX_LENGTH];
     memset(ch_swap_name, 0, FILE_NAME_MAX_LENGTH);
@@ -597,10 +593,10 @@ int trans_status_on_ack_del(char *data, unsigned long len, sync_protocol *protoc
     return 0;
 }
 
-int trans_status_on_recv_new(char *data, unsigned long len, sync_protocol *protocol)
+int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* protocol)
 {
     protocol->instance_p->task_push = 1;
-    FILE *file = fopen(protocol->file_name, "ab");
+    FILE* file = fopen(protocol->file_name, "ab");
     if (!file)
     {
         s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
@@ -626,7 +622,7 @@ int trans_status_on_recv_new(char *data, unsigned long len, sync_protocol *proto
     return 0;
 }
 
-int update_instance(const char *instance_id, sync_protocol *protocol)
+int update_instance(const char* instance_id, sync_protocol* protocol)
 {
     char ch_instance_path[FILE_NAME_MAX_LENGTH];
     memset(protocol->instance_id, 0, INSTANCE_ID_LEN);
@@ -667,9 +663,9 @@ int update_instance(const char *instance_id, sync_protocol *protocol)
     return 1;
 }
 
-BOOL file_exist(const char *filename)
+BOOL file_exist(const char* filename)
 {
-    FILE *file = fopen(filename, "rb");
+    FILE* file = fopen(filename, "rb");
     if (file)
     {
         fclose(file);
@@ -678,9 +674,9 @@ BOOL file_exist(const char *filename)
     return 0;
 }
 
-int touch_file(const char *filename)
+int touch_file(const char* filename)
 {
-    FILE *file = fopen(filename, "wb");
+    FILE* file = fopen(filename, "wb");
     if (file)
     {
         fclose(file);
@@ -689,9 +685,9 @@ int touch_file(const char *filename)
     return 1;
 }
 
-long get_file_length(char *fname)
+long get_file_length(char* fname)
 {
-    FILE *file = fopen(fname, "rb");
+    FILE* file = fopen(fname, "rb");
     if (!file)
     {
         s_log(LOG_DEBUG, "[server] config open file error. %s.", fname);
@@ -705,9 +701,9 @@ long get_file_length(char *fname)
     return len;
 }
 
-int read_file_to_buff(char *fname, char *data, long len)
+int read_file_to_buff(char* fname, char* data, long len)
 {
-    FILE *file = fopen(fname, "rb");
+    FILE* file = fopen(fname, "rb");
     if (!file)
     {
         s_log(LOG_DEBUG, "[server] config open file error. %s.", fname);
@@ -720,9 +716,9 @@ int read_file_to_buff(char *fname, char *data, long len)
     return 0;
 }
 
-long get_file_length_md5(const char *file_name, char *buf)
+long get_file_length_md5(const char* file_name, char* buf)
 {
-    FILE *fp = fopen(file_name, "rb");
+    FILE* fp = fopen(file_name, "rb");
     long flen = 0;
     // errno_t err = fopen_s(&fp, file_name, "rb");
     char ch_out[32];

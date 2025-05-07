@@ -52,10 +52,16 @@ int authenticate(struct mg_http_message* hm)
     {
         return 0;
     }
-    else
+    if (0 == strcmp(pass, "1234567890abcdef"))
     {
-        return 1;
+        return 0;
     }
+    return 1;
+}
+
+int authenticate_token(const char token)
+{
+
 }
 
 // HTTP server event handler function
@@ -75,7 +81,7 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
         if (0 != authenticate(hm))
         {
-            s_log(LOG_DEBUG, "user auth error.");
+            default_path(c, hm, ev_data);
             return;
         }
         ev_handler_path(c, hm, ev_data);
@@ -87,7 +93,7 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
     enum api_controller_path router_index = search_route_index(hm);
-    s_log(LOG_DEBUG, "router_index = %d.", router_index);
+
     switch (router_index)
     {
     case API_ROOT:
@@ -278,9 +284,9 @@ void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev
 
 void handle_login(struct mg_connection* c, struct mg_http_message* hm, void* ev_dat)
 {
-
     char cookie[256];
-    const char* cookie_name = c->is_tls ? "secure_access_token" : "access_token";
+    //const char* cookie_name = c->is_tls ? "secure_access_token" : "access_token";
+    const char* cookie_name = "access_token";
     mg_snprintf(cookie, sizeof(cookie),
         "Set-Cookie: %s=%s; Path=/; "
         "%sHttpOnly; SameSite=Lax; Max-Age=%d\r\n",
