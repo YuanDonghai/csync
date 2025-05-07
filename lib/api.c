@@ -24,8 +24,8 @@ void start_restapi_server(const char* listen_address, int port)
     sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
     mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
 #elif defined(__linux__)
-    sprintf_s(ch_url, 256, "http://%s:%d", listen_address, port);
-    mg_http_listen(&mgr, ch_url, ev_handler, NULL);
+    sprintf_s(ch_url, 256, "https://%s:%d", listen_address, port);
+    mg_http_listen(&mgr, ch_url, ev_handler, (void*)1);
 #else
     //others
 #endif
@@ -70,8 +70,6 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
         mg_tls_init(c, &opts);
     }
 
-
-
     if (ev == MG_EV_HTTP_MSG)
     {
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
@@ -81,6 +79,7 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
             return;
         }
         ev_handler_path(c, hm, ev_data);
+        // mg_http_reply(c, 200, "", "%s", "helloptest");
 
     }
 }
@@ -88,7 +87,7 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
     enum api_controller_path router_index = search_route_index(hm);
-
+    s_log(LOG_DEBUG, "router_index = %d.", router_index);
     switch (router_index)
     {
     case API_ROOT:
@@ -180,6 +179,7 @@ void default_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_
 void api_root(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
     enum api_method method = search_method_index(hm);
+    s_log(LOG_DEBUG, "api_root");
     switch (method)
     {
     case M_GET:
@@ -189,14 +189,16 @@ void api_root(struct mg_connection* c, struct mg_http_message* hm, void* ev_data
         mg_http_reply(c, 405, "", "");
         break;
     }
-
+    s_log(LOG_DEBUG, "api root.");
 }
 void api_service(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+    s_log(LOG_DEBUG, "api_service");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
     case M_GET:
+        s_log(LOG_DEBUG, "api_service: %s.", get_local_service());
         mg_http_reply(c, 200, "", "%s", get_local_service());
         break;
     default:
@@ -207,6 +209,7 @@ void api_service(struct mg_connection* c, struct mg_http_message* hm, void* ev_d
 }
 void api_node(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+    s_log(LOG_DEBUG, "api_node");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -220,6 +223,7 @@ void api_node(struct mg_connection* c, struct mg_http_message* hm, void* ev_data
 }
 void api_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+    s_log(LOG_DEBUG, "api_nodes");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -237,6 +241,7 @@ void api_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_dat
 
 void api_wss(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+    s_log(LOG_DEBUG, "api_wss");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -255,6 +260,7 @@ void api_wss(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 
 void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+    s_log(LOG_DEBUG, "api_instances");
     enum api_method method = search_method_index(hm);
     switch (method)
     {

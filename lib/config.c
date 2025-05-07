@@ -272,7 +272,7 @@ char* get_local_node_info()
     }
 }
 
-char* get_local_service()
+const char* get_local_service()
 {
     char res_string[4096];
     char rest_addr[32];
@@ -281,6 +281,7 @@ char* get_local_service()
     int sync_port = 0;
     struct json_object* node_obj;
     struct json_object* value_obj;
+    s_log(LOG_DEBUG, "get_local_service.");
     if (json_object_object_get_ex(base_config, "restapi", &node_obj))
     {
         if (json_object_object_get_ex(node_obj, "listen_address", &value_obj))
@@ -319,6 +320,7 @@ char* get_local_service()
             sync_port = 16345;
         }
     }
+    s_log(LOG_DEBUG, "get_local_service %s.", res_string);
     sprintf_s(res_string, 4096, "{\"restapi\":{\"port\":%d,\"listen_address\" : \"%s\"},\"sync\":{\"port\":%d,\"listen_address\" : \"%s\"}}", rest_port, rest_addr, sync_port, sync_addr);
     return res_string;
 }

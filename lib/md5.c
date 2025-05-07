@@ -25,9 +25,10 @@ int md5_stream(FILE* stream, void* resblock)
 {
     //char* buffer = malloc(BLOCKSIZE + 72);
     char buffer[BLOCKSIZE + 72];
+    /*
     if (!buffer)
         return 1;
-
+    */
     struct md5_ctx ctx;
     md5_init_ctx(&ctx);
     size_t sum;

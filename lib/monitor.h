@@ -22,7 +22,7 @@
 typedef bool BOOL;
 typedef int SOCKET;
 typedef int DWORD;
-#define INVALID_SOCKET 0
+//#define INVALID_SOCKET 0
 
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define BUF_LEN (1024 * (EVENT_SIZE + NAME_MAX + 1))

@@ -43,10 +43,16 @@ int get_api_server_user(char* user, char* pass)
     {
         struct json_object* element = json_object_array_get_idx(user_json, i);
         struct json_object* pass_obj;
-        if (json_object_object_get_ex(element, "password", &pass_obj))
+        if (json_object_object_get_ex(element, "user", &pass_obj))
         {
-            sprintf_s(pass, 64, "%s", json_object_get_string(pass_obj));
-            return 0;
+            if (0 == strcmp(user, json_object_get_string(pass_obj)))
+            {
+                if (json_object_object_get_ex(element, "password", &pass_obj))
+                {
+                    sprintf_s(pass, 64, "%s", json_object_get_string(pass_obj));
+                    return 0;
+                }
+            }
         }
     }
     return 1;
