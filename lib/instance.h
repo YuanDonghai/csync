@@ -28,6 +28,8 @@ int load_default_nodes_instances(const char* nodes_path, const char* instances_p
 int load_default_neighbors(const char* file_path);
 int load_default_instances(const char* file_path);
 
+struct json_object* get_json_obj(int type);
+void save_json(int type);
 /*
 nodes
 */
@@ -44,5 +46,6 @@ char* _instance_add_instance(const char* body_json);
 void load_instances_meta();
 char* get_workspace_path(const char* ws_id);
 void get_instance_path(const char* id, char* path);
+
 
 #endif

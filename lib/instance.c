@@ -44,6 +44,41 @@ int load_default_instances(const char* file_path)
     dump_json_to_file(instances_json, file_path);
 }
 
+struct json_object* get_json_obj(int type)
+{
+    switch (type)
+    {
+    case 0:
+        return nodes_json;
+        break;
+    case 1:
+        return workspace_list;
+        break;
+    case 2:
+        return instances_list;
+        break;
+    default:
+        return NULL;
+        break;
+    }
+}
+void save_json(int type)
+{
+    switch (type)
+    {
+    case 0:
+        dump_json_to_file(nodes_json, nodes_file_path);
+        break;
+    case 1:
+        dump_json_to_file(instances_json, instances_file_path);
+        break;
+
+    default:
+
+        break;
+    }
+}
+
 char* _node_get_nodes()
 {
     return json_object_get_string(nodes_json);
@@ -51,11 +86,19 @@ char* _node_get_nodes()
 
 char* _node_add_nodes(const char* body_json)
 {
+    char temp_str[4096];
+    char name[4096];
     struct json_object* add_new_obj = json_tokener_parse(body_json);
     struct json_object* add_obj_address;
     if (!json_object_object_get_ex(add_new_obj, "address", &add_obj_address))
     {
         return "{\"result\":\"error\",\"error\":\"no address\"}";
+    }
+    sprintf_s(temp_str, 4096, "https://%s:16345", json_object_get_string(add_obj_address));
+    sprintf_s(name, 4096, "%s", json_object_get_string(add_obj_address));
+    if (!json_object_object_get_ex(add_new_obj, "api_url", &add_obj_address))
+    {
+        json_object_object_add(add_new_obj, "api_url", json_object_new_string(temp_str));
     }
 
     int array_length = json_object_array_length(nodes_json);
@@ -65,17 +108,22 @@ char* _node_add_nodes(const char* body_json)
         struct json_object* pass_obj;
         if (json_object_object_get_ex(element, "address", &pass_obj))
         {
-            if (0 == strcmp(json_object_get_string(add_obj_address), json_object_get_string(pass_obj)))
+            if (0 == strcmp(name, json_object_get_string(pass_obj)))
             {
                 return "{\"result\":\"error\",\"error\":\"this address exist\"}";
             }
         }
     }
-    json_object_object_add(add_new_obj, "id", json_object_new_string(gen_uuid_str()));
+
+    json_object_object_add(add_new_obj, "id", json_object_new_string(""));
+    json_object_object_add(add_new_obj, "name", json_object_new_string(name));
+    json_object_object_add(add_new_obj, "sync_port", json_object_new_int(26345));
+    json_object_object_add(add_new_obj, "status", json_object_new_string("adding"));
     if (0 == json_object_array_add(nodes_json, add_new_obj))
     {
         dump_json_to_file(nodes_json, nodes_file_path);
     }
+
     return "{}";
 }
 
@@ -265,7 +313,7 @@ void load_instances_meta()
         sprintf_s(push_ins->path, FILE_PATH_MAX_LEN, "%s", get_workspace_path(wss_id));
         if (0 < strlen(push_ins->path))
         {
-           // add_instance_in_monitor(in_id, peer_id,in_name, path, in_peer_addr, port);
+            // add_instance_in_monitor(in_id, peer_id,in_name, path, in_peer_addr, port);
             add_instance_in_monitor_s(push_ins);
             _sleep_or_Sleep(1);
         }

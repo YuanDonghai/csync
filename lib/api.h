@@ -8,7 +8,7 @@
 #include "user.h"
 #include "instance.h"
 
-#define AUTH_ENABLE 1
+#define AUTH_ENABLE 0
 #define VERSION "v1"
 #define MAX_LOGIN_TOKENS 64
 

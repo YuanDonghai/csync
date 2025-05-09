@@ -7,6 +7,7 @@
 #include "lib/monitor.h"
 #include "lib/net.h"
 #include "lib/api.h"
+#include "lib/status.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -31,6 +32,14 @@ DWORD WINAPI thread_start_monitor_server(LPVOID lpParam)
     start_monitor_entry();
     return 0;
 }
+
+DWORD WINAPI thread_start_monitor_status(LPVOID lpParam)
+{
+    s_log(LOG_INFO, "starting monitor status.");
+    start_handle_status();
+    return 0;
+}
+
 #elif defined(__linux__)
 #include <pthread.h>
 #define CONFIG_PATH "config/config.json"
@@ -74,22 +83,29 @@ void* thread_start_monitor_server(void* lpParam)
 
 int main()
 {
+
     set_log_params("log.txt", 0, LOG_DEBUG);
     s_log(LOG_INFO, "starting csync process.");
+    // create cache dir
+    create_dir("cache");
+    create_dir("config");
     load_config(CONFIG_PATH);
     load_users_config(base_get_others_path(USER));
     load_default_nodes_instances(base_get_others_path(NEIGHBOR), base_get_others_path(INSTANCE));
 
 #if defined(_WIN32) || defined(_WIN64)
-    const int NUM_THREADS = 3;
-    HANDLE threads[3];
+    const int NUM_THREADS = 4;
+    HANDLE threads[4];
 
     threads[0] = CreateThread(NULL, 0, thread_start_socket_server, NULL, 0, NULL);
     threads[1] = CreateThread(NULL, 0, thread_start_restapi_server, NULL, 0, NULL);
     threads[2] = CreateThread(NULL, 0, thread_start_monitor_server, NULL, 0, NULL);
+    threads[3] = CreateThread(NULL, 0, thread_start_monitor_status, NULL, 0, NULL);
+
 
     Sleep(1000);
     load_instances_meta();
+
     WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
     for (int i = 0; i < NUM_THREADS; i++)
     {

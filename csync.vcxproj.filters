@@ -57,6 +57,9 @@
     <ClCompile Include="lib\api.c">
       <Filter>lib</Filter>
     </ClCompile>
+    <ClCompile Include="lib\status.c">
+      <Filter>lib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\config.h">
@@ -99,6 +102,9 @@
       <Filter>lib</Filter>
     </ClInclude>
     <ClInclude Include="lib\api.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\status.h">
       <Filter>lib</Filter>
     </ClInclude>
   </ItemGroup>

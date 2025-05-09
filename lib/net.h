@@ -25,6 +25,8 @@
 #include "protocol.h"
 #include "log.h"
 #include "code.h"
+#include "config.h"
+#include "instance.h"
 
 #define MAX_CONNECTION_NUM 65535
 #define SOCKET_BUFFER_LEN 4096

@@ -139,6 +139,7 @@
     <ClCompile Include="lib\monitor.c" />
     <ClCompile Include="lib\net.c" />
     <ClCompile Include="lib\protocol.c" />
+    <ClCompile Include="lib\status.c" />
     <ClCompile Include="lib\user.c" />
   </ItemGroup>
   <ItemGroup>
@@ -155,6 +156,7 @@
     <ClInclude Include="lib\net.h" />
     <ClInclude Include="lib\protocol.h" />
     <ClInclude Include="lib\protocol_sm.h" />
+    <ClInclude Include="lib\status.h" />
     <ClInclude Include="lib\user.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
