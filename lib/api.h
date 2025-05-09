@@ -30,7 +30,8 @@ static char* api_controller[] = {
     "/api/service",
     "/api/nodes",
     "/api/wss",
-    "/api/instances"
+    "/api/instances",
+    "/"
 };
 
 enum api_method {

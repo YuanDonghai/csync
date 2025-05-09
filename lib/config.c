@@ -22,7 +22,7 @@ int load_default_base_config(const char* file_path)
     struct json_object* add_new_obj;
     // node
     add_new_obj = json_object_new_object();
-    json_object_object_add(add_new_obj, "name", json_object_new_string(get_hostname()));    
+    json_object_object_add(add_new_obj, "name", json_object_new_string(get_hostname()));
     json_object_object_add(add_new_obj, "id", json_object_new_string(gen_uuid_str()));
     //json_object_object_add(add_new_obj, "name", json_object_new_string("localhost.localdomain"));   
     //json_object_object_add(add_new_obj, "id", json_object_new_string("0f1a0516-1456-41c9-b386-fbf5bd78c223"));
@@ -272,16 +272,15 @@ char* get_local_node_info()
     }
 }
 
-const char* get_local_service()
+void get_local_service(char* res)
 {
-    char res_string[4096];
+    //const char res_string[4096];
     char rest_addr[32];
     int rest_port = 0;
     char sync_addr[32];
     int sync_port = 0;
     struct json_object* node_obj;
     struct json_object* value_obj;
-    s_log(LOG_DEBUG, "get_local_service.");
     if (json_object_object_get_ex(base_config, "restapi", &node_obj))
     {
         if (json_object_object_get_ex(node_obj, "listen_address", &value_obj))
@@ -320,7 +319,8 @@ const char* get_local_service()
             sync_port = 16345;
         }
     }
-    s_log(LOG_DEBUG, "get_local_service %s.", res_string);
-    sprintf_s(res_string, 4096, "{\"restapi\":{\"port\":%d,\"listen_address\" : \"%s\"},\"sync\":{\"port\":%d,\"listen_address\" : \"%s\"}}", rest_port, rest_addr, sync_port, sync_addr);
-    return res_string;
+
+    sprintf_s(res, 4096, "{\"restapi\":{\"port\":%d,\"listen_address\" : \"%s\"},\"sync\":{\"port\":%d,\"listen_address\" : \"%s\"}}", rest_port, rest_addr, sync_port, sync_addr);
+    // s_log(LOG_DEBUG, "get_local_service %s.", res);
+     // return res_string;
 }

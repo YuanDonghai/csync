@@ -92,6 +92,7 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 
 void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
+
     enum api_controller_path router_index = search_route_index(hm);
 
     switch (router_index)
@@ -178,14 +179,20 @@ void default_path(struct mg_connection* c, struct mg_http_message* hm, void* ev_
 {
     struct mg_http_serve_opts opts;
     memset(&opts, 0, sizeof(opts));
-    opts.root_dir = "web_root";
+#if MG_ARCH == MG_ARCH_UNIX || MG_ARCH == MG_ARCH_WIN32
+    opts.root_dir = "web_root";  // On workstations, use filesystem
+#else
+    opts.root_dir = "web_root";  // On embedded, use packed files
+    opts.fs = &mg_fs_packed;
+#endif
+    // opts.root_dir = "web_root";
+    // opts.fs = &mg_fs_packed;
     mg_http_serve_dir(c, ev_data, &opts);
 }
 
 void api_root(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
     enum api_method method = search_method_index(hm);
-    s_log(LOG_DEBUG, "api_root");
     switch (method)
     {
     case M_GET:
@@ -199,23 +206,22 @@ void api_root(struct mg_connection* c, struct mg_http_message* hm, void* ev_data
 }
 void api_service(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
-    s_log(LOG_DEBUG, "api_service");
     enum api_method method = search_method_index(hm);
+    char res_service[4096];
     switch (method)
     {
     case M_GET:
-        s_log(LOG_DEBUG, "api_service: %s.", get_local_service());
-        mg_http_reply(c, 200, "", "%s", get_local_service());
+        memset(res_service, 0, 4096);
+        get_local_service(res_service);
+        mg_http_reply(c, 200, "", "%s", res_service);
         break;
     default:
         mg_http_reply(c, 405, "", "");
         break;
     }
-
 }
 void api_node(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
-    s_log(LOG_DEBUG, "api_node");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -229,7 +235,6 @@ void api_node(struct mg_connection* c, struct mg_http_message* hm, void* ev_data
 }
 void api_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
-    s_log(LOG_DEBUG, "api_nodes");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -247,7 +252,6 @@ void api_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_dat
 
 void api_wss(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
-    s_log(LOG_DEBUG, "api_wss");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -266,7 +270,6 @@ void api_wss(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 
 void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
 {
-    s_log(LOG_DEBUG, "api_instances");
     enum api_method method = search_method_index(hm);
     switch (method)
     {
@@ -285,8 +288,8 @@ void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev
 void handle_login(struct mg_connection* c, struct mg_http_message* hm, void* ev_dat)
 {
     char cookie[256];
-    //const char* cookie_name = c->is_tls ? "secure_access_token" : "access_token";
-    const char* cookie_name = "access_token";
+    const char* cookie_name = c->is_tls ? "secure_access_token" : "access_token";
+    // const char* cookie_name = "access_token";
     mg_snprintf(cookie, sizeof(cookie),
         "Set-Cookie: %s=%s; Path=/; "
         "%sHttpOnly; SameSite=Lax; Max-Age=%d\r\n",
