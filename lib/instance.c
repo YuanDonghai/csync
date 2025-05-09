@@ -40,6 +40,8 @@ int load_default_neighbors(const char* file_path)
 int load_default_instances(const char* file_path)
 {
     instances_json = json_object_new_object();
+    json_object_object_add(instances_json, "workspaces", json_object_new_array());
+    json_object_object_add(instances_json, "instances", json_object_new_array());
     // save
     dump_json_to_file(instances_json, file_path);
 }
@@ -390,12 +392,18 @@ char* _instance_add_workspace(const char* body_json)
 {
     struct json_object* add_new_obj = json_tokener_parse(body_json);
     struct json_object* add_obj_address;
+    if (!json_object_object_get_ex(add_new_obj, "name", &add_obj_address))
+    {
+        return "{\"result\":\"error\",\"error\":\"no name\"}";
+    }
     if (!json_object_object_get_ex(add_new_obj, "path", &add_obj_address))
     {
         return "{\"result\":\"error\",\"error\":\"no path\"}";
     }
+
     char ch_add_path[FILE_PATH_MAX_LEN];
     char exist_path[FILE_PATH_MAX_LEN];
+    char exist_name[FILE_PATH_MAX_LEN];
     sprintf_s(ch_add_path, FILE_PATH_MAX_LEN, "%s", json_object_get_string(add_obj_address));
     format_path(ch_add_path);
     int array_length = json_object_array_length(workspace_list);
@@ -428,14 +436,79 @@ char* _instance_get_instance()
 }
 char* _instance_add_instance(const char* body_json)
 {
-    struct json_object* add_new_obj = json_tokener_parse(body_json);
-    json_object_object_add(add_new_obj, "id", json_object_new_string(gen_uuid_str()));
-    json_object_object_add(add_new_obj, "peer_iid", json_object_new_string(gen_uuid_str()));
-
-    if (0 == json_object_array_add(instances_list, add_new_obj))
+    /*
     {
-        dump_json_to_file(instances_json, instances_file_path);
+    name
+    wss
+    type
+    nodes :[]
     }
+    */
+    char wss_id[128];
+    int type = 0;
+    struct json_object* add_new_obj = json_tokener_parse(body_json);
+    struct json_object* add_obj_address;
+    if (!json_object_object_get_ex(add_new_obj, "wss", &add_obj_address))
+    {
+        return "{\"result\":\"error\",\"error\":\"no worspace\"}";
+    }
+    sprintf_s(wss_id, 128, "%s", json_object_get_string(add_obj_address));
+
+    if (!json_object_object_get_ex(add_new_obj, "type", &add_obj_address))
+    {
+        return "{\"result\":\"error\",\"error\":\"no type\"}";
+    }
+    type = json_object_get_int(add_obj_address);
+
+    if (!json_object_object_get_ex(add_new_obj, "nodes", &add_obj_address))
+    {
+        return "{\"result\":\"error\",\"error\":\"no nodes\"}";
+    }
+    else
+    {
+        if (0 == json_object_array_length(add_obj_address))
+        {
+            return "{\"result\":\"error\",\"error\":\"no nodes\"}";
+        }
+    }
+
+    int array_length = json_object_array_length(add_obj_address);
+    char ch_node[128];
+
+    for (int i = 0; i < array_length; i++)
+    {
+        /*
+          "id": "EE386E60-9B14-4390-8555-F31F05901144",
+            "wss_id": "EE386E60-9B14-4390-8555-F31F05901A41",
+            "name": "csync0_instance",
+            "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
+            "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B34",
+            "type": 2
+        */
+        struct json_object* element = json_object_array_get_idx(add_obj_address, i);
+        sprintf_s(ch_node, 128, "%s", json_object_get_string(element));
+        struct json_object* add_new_ins = json_object_new_object();
+        json_object_object_add(add_new_ins, "id", json_object_new_string(gen_uuid_str()));
+        json_object_object_add(add_new_ins, "wss_id", json_object_new_string(wss_id));
+        json_object_object_add(add_new_ins, "peer_node", json_object_new_string(ch_node));
+        json_object_object_add(add_new_ins, "type", json_object_new_int(type));
+        json_object_object_add(add_new_ins, "status", json_object_new_string("adding"));
+        json_object_array_add(instances_list, add_new_ins);
+
+
+    }
+
+    dump_json_to_file(instances_json, instances_file_path);
+
     return "{}";
 }
 
+char* _instance_connect_instance(const char* body_json)
+{
+    struct json_object* add_new_obj = json_tokener_parse(body_json);
+    json_object_object_add(add_new_obj, "peer_iid", json_object_new_string(gen_uuid_str()));
+
+    // 本地创建instance，添加event。
+
+    return json_object_get_string(add_new_obj);
+}

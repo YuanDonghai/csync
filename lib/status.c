@@ -41,6 +41,10 @@ void handle_nodes_status()
                 {
                     json_object_object_add(value_obj, "id", return_node_value);
                 }
+                if (json_object_object_get_ex(return_node, "os_type", &return_node_value))
+                {
+                    json_object_object_add(value_obj, "os_type", return_node_value);
+                }
 
                 result = request_restapi_service(uri);
                 return_node = json_tokener_parse(result);

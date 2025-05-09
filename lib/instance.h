@@ -43,6 +43,7 @@ char* _instance_get_workspace();
 char* _instance_add_workspace(const char* body_json);
 char* _instance_get_instance();
 char* _instance_add_instance(const char* body_json);
+char* _instance_connect_instance(const char* body_json);
 void load_instances_meta();
 char* get_workspace_path(const char* ws_id);
 void get_instance_path(const char* id, char* path);

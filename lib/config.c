@@ -264,6 +264,13 @@ char* get_local_node_info()
     struct json_object* node_obj;
     if (json_object_object_get_ex(base_config, "node", &node_obj))
     {
+#if defined(_WIN32) || defined(_WIN64)
+        json_object_object_add(node_obj, "os_type", json_object_new_int(0));
+#elif defined(__linux__)
+        json_object_object_add(node_obj, "os_type", json_object_new_int(1));
+#else
+        //others
+#endif
         return json_object_get_string(node_obj);
     }
     else
