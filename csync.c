@@ -36,6 +36,10 @@ DWORD WINAPI thread_start_monitor_server(LPVOID lpParam)
 #define CONFIG_PATH "config/config.json"
 void* thread_start_socket_server(void* lpParam)
 {
+    if (lpParam)
+    {
+
+    }
     s_log(LOG_INFO, "starting csync data server, listen on %s:%d.", base_get_data_listen_address(), base_get_data_listen_port());
     start_server_linux(base_get_data_listen_address(), base_get_data_listen_port());
     return 0;
@@ -43,6 +47,10 @@ void* thread_start_socket_server(void* lpParam)
 
 void* thread_start_restapi_server(void* lpParam)
 {
+    if (lpParam)
+    {
+
+    }
     s_log(LOG_INFO, "starting restapi server, listen on %s:%d.", base_get_restapi_listen_address(), base_get_restapi_listen_port());
     start_restapi_server(base_get_restapi_listen_address(), base_get_restapi_listen_port());
     return 0;
@@ -50,6 +58,10 @@ void* thread_start_restapi_server(void* lpParam)
 
 void* thread_start_monitor_server(void* lpParam)
 {
+    if (lpParam)
+    {
+
+    }
     s_log(LOG_INFO, "starting monitor server.");
     start_monitor_entry();
     return 0;
@@ -94,7 +106,7 @@ int main()
     load_instances_meta();
     for (int i = 0; i < NUM_THREADS; i++)
     {
-        pthread_join(threads[i],NULL);
+        pthread_join(threads[i], NULL);
     }
     s_log(LOG_INFO, "stop csync process.");
 #else

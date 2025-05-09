@@ -1113,7 +1113,6 @@ struct instance_meta* search_instance_p(const char* instance_id)
             s_log(LOG_DEBUG, "[%s] [%s]", it_i_p->id, instance_id);
             if (0 == strcmp(it_i_p->id, instance_id))
             {
-                s_log(LOG_DEBUG, "search instance p: %d", it_i_p);
                 return it_i_p;
             }
             it_i_p = it_i_p->next;

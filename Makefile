@@ -2,7 +2,7 @@
 CC = gcc
 
 # 编译器选项
-CFLAGS = -O2 -I./lib -Wall -Wextra -g -ljson-c -lpthread -luuid -lrsync -lssl -lcrypto -DMG_TLS=MG_TLS_OPENSSL
+CFLAGS = -O2 -I./lib -Wextra -g -ljson-c -lpthread -luuid -lrsync -lssl -lcrypto -DMG_TLS=MG_TLS_OPENSSL 
 # 目标可执行文件
 TARGET = csync
 

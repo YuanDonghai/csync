@@ -18,13 +18,7 @@ enum log_level_def
     LOG_DEBUG = 2
 };
 
-static char log_level_string[3][8] = { "ERROR","INFO ","DEBUG" };
 
-static char log_path[LOG_FILE_NAME_LENGTH];
-static FILE* f_log;
-static enum log_level_def log_level;
-
-static char log_data[SINGLE_LOG_MAX_LENGTH];
 
 int set_log_params(char* path, int format, enum log_level_def level);
 void s_log(enum log_level_def level, const char* data, ...);
