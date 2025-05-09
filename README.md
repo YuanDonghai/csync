@@ -21,13 +21,13 @@ linux: fedora42
 
 ## 依赖的库
 
-librsync
+librsync: 文件增量同步
 
-mongoose
+mongoose：web、restapi
 
-openssl
+openssl：加密
 
-json-c
+json-c：配置以及部分处理的库
 
 
 ## 开发内容
