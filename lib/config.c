@@ -278,6 +278,18 @@ char* get_local_node_info()
         return "{}";
     }
 }
+char* get_local_node_id()
+{
+    struct json_object* node_obj;
+    if (json_object_object_get_ex(base_config, "node", &node_obj))
+    {
+        struct json_object* node_id;
+        if (json_object_object_get_ex(node_obj, "node", &node_id))
+        {
+            return json_object_get_string(node_id);
+        }
+    }
+}
 
 void get_local_service(char* res)
 {

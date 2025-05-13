@@ -129,6 +129,45 @@ char* _node_add_nodes(const char* body_json)
     return "{}";
 }
 
+const char* _node_negotiate_node(const char* body_json, const char* client_address)
+{
+    struct json_object* add_new_obj = json_tokener_parse(body_json);
+    struct json_object* add_obj_address;
+    if (json_object_object_get_ex(add_new_obj, "id", &add_obj_address))
+    {
+        if (1 == check_nodes_exist_with_id(json_object_get_string(add_obj_address)))
+        {
+            return "{\"result\":\"error\",\"error\":\"this node exist\"}";
+        }
+    }
+
+    /*
+    {
+      "id":"416055F3-A655-4DCC-803E-C1BE1B345912",
+      "wss_id":"8BBCD53F-8DCE-44CB-A41C-B0E6B2ADCA78",
+      "peer_node":"8773E01E-F270-468D-BAE7-29EB93200EA5",
+      "type":2,
+      "status":"adding"
+    }
+    */
+    char ch_url[4096];
+    json_object_object_add(add_new_obj, "address", json_object_new_string(client_address));
+    json_object_object_add(add_new_obj, "status", json_object_new_string("online"));
+
+    if (json_object_object_get_ex(add_new_obj, "api_url", &add_obj_address))
+    {
+        sprintf_s(ch_url, 4096, "https://%s:%s", client_address, json_object_get_string(add_obj_address));
+        json_object_object_add(add_new_obj, "api_url", json_object_new_string(ch_url));
+    }
+
+
+    if (0 == json_object_array_add(nodes_json, add_new_obj))
+    {
+        dump_json_to_file(nodes_json, nodes_file_path);
+    }
+    return "{}";
+}
+
 int get_node_address_port(char* node_id, char* address, int* port, int* os_type)
 {
     int array_length = json_object_array_length(nodes_json);
@@ -201,6 +240,54 @@ int get_node_address_port(char* node_id, char* address, int* port, int* os_type)
     }
 }
 
+int get_node_api_url(char* node_id, char* url)
+{
+    int array_length = json_object_array_length(nodes_json);
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* value_obj = json_object_array_get_idx(nodes_json, i);
+        struct json_object* node_value_obj;
+        if (json_object_object_get_ex(value_obj, "id", &node_value_obj))
+        {
+            if (0 != strcmp(node_id, json_object_get_string(node_value_obj)))
+            {
+                continue;
+            }
+            else
+            {
+                if (json_object_object_get_ex(value_obj, "api_url", &node_value_obj))
+                {
+                    sprintf_s(url, 256, "%s", json_object_get_string(node_value_obj));
+                }
+                else
+                {
+                    return -1;
+                }
+                return 0;
+            }
+        }
+    }
+    return -1;
+}
+
+int check_nodes_exist_with_id(char* node_id)
+{
+    int array_length = json_object_array_length(nodes_json);
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* element = json_object_array_get_idx(nodes_json, i);
+        struct json_object* pass_obj;
+        if (json_object_object_get_ex(element, "id", &pass_obj))
+        {
+            if (0 == strcmp(node_id, json_object_get_string(pass_obj)))
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 void load_instances_meta()
 {
 
@@ -246,7 +333,17 @@ void load_instances_meta()
     {
         struct json_object* in_val = json_object_array_get_idx(instances_list, i);
         struct json_object* in_value_obj;
-
+        if (json_object_object_get_ex(in_val, "status", &in_value_obj))
+        {
+            if (0 != strcmp("online", json_object_get_string(in_value_obj)))
+            {
+                continue;
+            }
+        }
+        else
+        {
+            continue;
+        }
         if (json_object_object_get_ex(in_val, "id", &in_value_obj))
         {
             sprintf_s(push_ins->id, INSTANCE_ID_LEN, "%s", json_object_get_string(in_value_obj));
@@ -356,6 +453,35 @@ char* get_workspace_path(const char* ws_id)
     return "";
 }
 
+char* get_workspace_name(const char* ws_id)
+{
+    int array_length = json_object_array_length(workspace_list);
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* element = json_object_array_get_idx(workspace_list, i);
+        struct json_object* id_obj;
+        if (json_object_object_get_ex(element, "id", &id_obj))
+        {
+            if (0 == strcmp(ws_id, json_object_get_string(id_obj)))
+            {
+                if (json_object_object_get_ex(element, "name", &id_obj))
+                {
+                    return json_object_get_string(id_obj);
+                }
+            }
+            else
+            {
+                continue;
+            }
+        }
+        else
+        {
+            continue;
+        }
+    }
+    return "null";
+}
+
 void get_instance_path(const char* id, char* path)
 {
     int array_length = json_object_array_length(instances_list);
@@ -445,6 +571,7 @@ char* _instance_add_instance(const char* body_json)
     }
     */
     char wss_id[128];
+    char instance_name[128];
     int type = 0;
     struct json_object* add_new_obj = json_tokener_parse(body_json);
     struct json_object* add_obj_address;
@@ -459,7 +586,10 @@ char* _instance_add_instance(const char* body_json)
         return "{\"result\":\"error\",\"error\":\"no type\"}";
     }
     type = json_object_get_int(add_obj_address);
-
+    if (!json_object_object_get_ex(add_new_obj, "name", &add_obj_address))
+    {
+        sprintf_s(instance_name, 128, "%s", get_workspace_name(wss_id));
+    }
     if (!json_object_object_get_ex(add_new_obj, "nodes", &add_obj_address))
     {
         return "{\"result\":\"error\",\"error\":\"no nodes\"}";
@@ -472,30 +602,22 @@ char* _instance_add_instance(const char* body_json)
         }
     }
 
+
     int array_length = json_object_array_length(add_obj_address);
     char ch_node[128];
 
     for (int i = 0; i < array_length; i++)
     {
-        /*
-          "id": "EE386E60-9B14-4390-8555-F31F05901144",
-            "wss_id": "EE386E60-9B14-4390-8555-F31F05901A41",
-            "name": "csync0_instance",
-            "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
-            "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B34",
-            "type": 2
-        */
         struct json_object* element = json_object_array_get_idx(add_obj_address, i);
         sprintf_s(ch_node, 128, "%s", json_object_get_string(element));
         struct json_object* add_new_ins = json_object_new_object();
+        json_object_object_add(add_new_ins, "name", json_object_new_string(instance_name));
         json_object_object_add(add_new_ins, "id", json_object_new_string(gen_uuid_str()));
         json_object_object_add(add_new_ins, "wss_id", json_object_new_string(wss_id));
         json_object_object_add(add_new_ins, "peer_node", json_object_new_string(ch_node));
         json_object_object_add(add_new_ins, "type", json_object_new_int(type));
         json_object_object_add(add_new_ins, "status", json_object_new_string("adding"));
         json_object_array_add(instances_list, add_new_ins);
-
-
     }
 
     dump_json_to_file(instances_json, instances_file_path);
@@ -511,4 +633,52 @@ char* _instance_connect_instance(const char* body_json)
     // 本地创建instance，添加event。
 
     return json_object_get_string(add_new_obj);
+}
+
+const char* _node_negotiate_instance(const char* body_json)
+{
+    struct json_object* add_new_obj = json_tokener_parse(body_json);
+    struct json_object* add_obj_address;
+    if (json_object_object_get_ex(add_new_obj, "peer_iid", &add_obj_address))
+    {
+        if (1 == check_instance_exist_with_peerid(json_object_get_string(add_obj_address)))
+        {
+            return "{\"result\":\"error\",\"error\":\"this peer instance exist\"}";
+        }
+    }
+
+    /*
+
+          "id": "",
+            "wss_id": "",
+            "name": "csync0_instance",
+            "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
+            "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B34",
+            "type": 2
+
+    */
+
+    if (0 == json_object_array_add(instances_list, add_new_obj))
+    {
+        dump_json_to_file(instances_json, instances_file_path);
+    }
+    return "{}";
+}
+
+int check_instance_exist_with_peerid(char* node_id)
+{
+    int array_length = json_object_array_length(instances_list);
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* element = json_object_array_get_idx(instances_list, i);
+        struct json_object* pass_obj;
+        if (json_object_object_get_ex(element, "peer_iid", &pass_obj))
+        {
+            if (0 == strcmp(node_id, json_object_get_string(pass_obj)))
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }

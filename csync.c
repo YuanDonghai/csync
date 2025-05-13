@@ -75,6 +75,18 @@ void* thread_start_monitor_server(void* lpParam)
     start_monitor_entry();
     return 0;
 }
+
+void* thread_start_monitor_status(void* lpParam)
+{
+    if (lpParam)
+    {
+
+    }
+    s_log(LOG_INFO, "starting status server.");
+    start_handle_status();
+    return 0;
+}
+
 #else
 //others
 #endif
@@ -100,11 +112,12 @@ int main()
     threads[0] = CreateThread(NULL, 0, thread_start_socket_server, NULL, 0, NULL);
     threads[1] = CreateThread(NULL, 0, thread_start_restapi_server, NULL, 0, NULL);
     threads[2] = CreateThread(NULL, 0, thread_start_monitor_server, NULL, 0, NULL);
+    Sleep(1000);
+    load_instances_meta();
     threads[3] = CreateThread(NULL, 0, thread_start_monitor_status, NULL, 0, NULL);
 
 
-    Sleep(1000);
-    load_instances_meta();
+
 
     WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
     for (int i = 0; i < NUM_THREADS; i++)
@@ -113,11 +126,12 @@ int main()
     }
     s_log(LOG_INFO, "stop csync process.");
 #elif defined(__linux__)
-    pthread_t threads[3];
+    pthread_t threads[4];
     pthread_create(&threads[0], NULL, thread_start_socket_server, NULL);
     pthread_create(&threads[1], NULL, thread_start_restapi_server, NULL);
     pthread_create(&threads[2], NULL, thread_start_monitor_server, NULL);
-    const int NUM_THREADS = 3;
+    pthread_create(&threads[3], NULL, thread_start_monitor_status, NULL);
+    const int NUM_THREADS = 4;
     sleep(1);
     load_instances_meta();
     for (int i = 0; i < NUM_THREADS; i++)

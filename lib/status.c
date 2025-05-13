@@ -5,6 +5,7 @@ void start_handle_status()
     while (1)
     {
         handle_nodes_status();
+        handle_instances_status();
         _sleep_or_Sleep(1000);
     }
 }
@@ -39,6 +40,12 @@ void handle_nodes_status()
                 }
                 if (json_object_object_get_ex(return_node, "id", &return_node_value))
                 {
+                    if (1 == check_nodes_exist_with_id(json_object_get_string(return_node_value)))
+                    {
+                        json_object_object_add(value_obj, "status", json_object_new_string("error"));
+                        save_json(0);
+                        continue;
+                    }
                     json_object_object_add(value_obj, "id", return_node_value);
                 }
                 if (json_object_object_get_ex(return_node, "os_type", &return_node_value))
@@ -63,6 +70,8 @@ void handle_nodes_status()
                 }
                 json_object_object_add(value_obj, "status", json_object_new_string("online"));
                 save_json(0);
+                // add self to remote
+                request_restapi_negotiate_node(uri);
             }
             /*
             else
@@ -98,6 +107,37 @@ void handle_nodes_status()
     }
 }
 
+void handle_instances_status()
+{
+    struct json_object* instances_json = get_json_obj(2);
+
+    int array_length = json_object_array_length(instances_json);
+    char* result = NULL;
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* value_obj = json_object_array_get_idx(instances_json, i);
+        struct json_object* node_value_obj;
+        if (json_object_object_get_ex(value_obj, "status", &node_value_obj))
+        {
+            if (0 == strcmp("adding", json_object_get_string(node_value_obj)))
+            {
+                struct json_object* node_id;
+                char ch_url[4096];
+                if (json_object_object_get_ex(value_obj, "peer_node", &node_id))
+                {
+                    if (0 != get_node_api_url(json_object_get_string(node_id), ch_url))
+                    {
+                        continue;
+                    }
+                    request_restapi_negotiate_instance(ch_url, json_object_get_string(value_obj));
+                    json_object_object_add(value_obj, "status", json_object_new_string("wait_sure"));
+                }
+            }
+
+        }
+    }
+}
+
 char* handle_request(const char* uri, const char* method, const char* header, const char* body)
 {
     char* result = NULL;
@@ -115,6 +155,7 @@ char* handle_request(const char* uri, const char* method, const char* header, co
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
         curl_easy_setopt(curl, CURLOPT_URL, uri);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
@@ -163,4 +204,44 @@ char* request_restapi_service(const char* uri)
     char server_uri[4096];
     sprintf_s(server_uri, 4096, "%s/api/service", uri);
     return handle_request(server_uri, "GET", "", "");
+}
+
+
+char* request_restapi_negotiate_node(const char* uri)
+{
+    char server_uri[4096];
+    sprintf_s(server_uri, 4096, "%s/api/negotiate/nodes", uri);
+    char res_url[10];
+    struct json_object* return_node = json_tokener_parse(get_local_node_info());
+    json_object_object_add(return_node, "sync_port", json_object_new_int(base_get_data_listen_port()));
+    sprintf_s(res_url, 10, "%d", base_get_restapi_listen_port());
+    json_object_object_add(return_node, "api_url", json_object_new_string(res_url));
+
+    return handle_request(server_uri, "POST", "", json_object_get_string(return_node));
+}
+
+char* request_restapi_negotiate_instance(const char* uri, const char* body_json)
+{
+    char server_uri[4096];
+    sprintf_s(server_uri, 4096, "%s/api/negotiate/instance", uri);
+    char res_url[10];
+    struct json_object* return_node = json_tokener_parse(body_json);
+    printf("1 %s\n", json_object_get_string(return_node));
+    struct json_object* node_value_obj;
+    if (json_object_object_get_ex(return_node, "id", &node_value_obj))
+    {
+        json_object_object_add(return_node, "peer_id", node_value_obj);
+    }
+
+    printf("2 %s\n", json_object_get_string(return_node));
+    json_object_object_add(return_node, "peer_node", get_local_node_id());
+    printf("3 %s\n", json_object_get_string(return_node));
+    // json_object_object_add(return_node, "id", json_object_new_string("null"));
+    printf("4 %s\n", json_object_get_string(return_node));
+    json_object_object_add(return_node, "wss", json_object_new_string(""));
+    printf("5 %s\n", json_object_get_string(return_node));
+    json_object_object_add(return_node, "status", json_object_new_string("wait_sure"));
+    printf("6 %s\n", json_object_get_string(return_node));
+
+    return handle_request(server_uri, "POST", "", json_object_get_string(return_node));
 }

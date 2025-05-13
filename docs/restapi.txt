@@ -1,0 +1,23 @@
+
+nodes:
+本地添加一个remote ndoe:
+{"address":"10.42.0.1"}
+
+协商节点：
+  {
+    "name":"localhost.localdomain",
+    "id":"0f1a0516-1456-41c9-b386-fbf5bd78c223",
+    "os_type":1,
+    "sync_port":26345,
+    "api_url":"16345"
+  }
+
+增加wss
+{ "name": "csync1", "path": "D:\\WORKDIR\\csync1"}
+
+增加instances
+{
+    "wss_id":"8BBCD53F-8DCE-44CB-A41C-B0E6B2ADCA78",
+    "type":2,
+    "nodes":["8773E01E-F270-468D-BAE7-29EB93200EA5"]
+}

@@ -35,7 +35,10 @@ nodes
 */
 char* _node_get_nodes();
 char* _node_add_nodes(const char* body_json);
+const char* _node_negotiate_node(const char* body_json, const char* client_address);
 int get_node_address_port(char* node_id, char* address, int* port, int* os_type);
+int get_node_api_url(char* node_id, char* url);
+int check_nodes_exist_with_id(char* node_id);
 /*
 instances
 */
@@ -44,8 +47,12 @@ char* _instance_add_workspace(const char* body_json);
 char* _instance_get_instance();
 char* _instance_add_instance(const char* body_json);
 char* _instance_connect_instance(const char* body_json);
+const char* _node_negotiate_instance(const char* body_json);
+int check_instance_exist_with_peerid(char* node_id);
+
 void load_instances_meta();
 char* get_workspace_path(const char* ws_id);
+char* get_workspace_name(const char* ws_id);
 void get_instance_path(const char* id, char* path);
 
 

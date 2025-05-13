@@ -79,6 +79,8 @@ static void ev_handler(struct mg_connection* c, int ev, void* ev_data)
     if (ev == MG_EV_HTTP_MSG)
     {
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
+
+
         if (0 != authenticate(hm))
         {
             default_path(c, hm, ev_data);
@@ -117,6 +119,14 @@ void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* 
         break;
     case API_INSTANCES:
         api_instances(c, hm, ev_data);
+        break;
+    case API_NEGOTIATE_NODES:
+        api_negotiate_nodes(c, hm, ev_data);
+        break;
+    case API_NEGOTIATE_INSTANCE:
+        api_negotiate_instance(c, hm, ev_data);
+        break;
+    case API_INSTANCE_ADD_DIR:
         break;
     case INDEX_END:
     default:
@@ -278,6 +288,54 @@ void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev
         break;
     case M_POST:
         mg_http_reply(c, 200, "", "%s", _instance_add_instance(hm->body.buf));
+        break;
+    default:
+        mg_http_reply(c, 405, "", "");
+        break;
+    }
+}
+
+void api_negotiate_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
+{
+    enum api_method method = search_method_index(hm);
+    switch (method)
+    {
+    case M_GET:
+        break;
+    case M_POST:
+        struct sockaddr_in client_addr;
+        int client_addr_len = sizeof(client_addr);
+        char client_address[IPV4_ADDRESS_LEN];
+        if (getpeername((int)(c->fd), (struct sockaddr*)&client_addr, &client_addr_len) == 0)
+        {
+            inet_ntop(AF_INET, &client_addr.sin_addr, client_address, IPV4_ADDRESS_LEN);
+            //  *port = ntohs(client_addr.sin_port);
+             // return 0;
+        }
+        else
+        {
+            printf("Failed to get client address: %d\n", WSAGetLastError());
+        }
+        printf("Client IP: %s\n", client_address);
+        s_log(LOG_DEBUG, "client %s : %d", client_address, 0);
+
+        mg_http_reply(c, 200, "", "%s", _node_negotiate_node(hm->body.buf, client_address));
+        break;
+    default:
+        mg_http_reply(c, 405, "", "");
+        break;
+    }
+}
+
+void api_negotiate_instance(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
+{
+    enum api_method method = search_method_index(hm);
+    switch (method)
+    {
+    case M_GET:
+        break;
+    case M_POST:
+        mg_http_reply(c, 200, "", "%s", _node_negotiate_instance(hm->body.buf));
         break;
     default:
         mg_http_reply(c, 405, "", "");
