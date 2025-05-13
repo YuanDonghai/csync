@@ -58,7 +58,7 @@ void handle_nodes_status()
                 free(result);
                 /*
                 {"restapi":{"port":16345,"listen_address" : "0.0.0.0"},"sync":{"port":26345,"listen_address" : "0.0.0.0"}}*/
-               
+
                 if (json_object_object_get_ex(return_node, "sync", &return_node_value))
                 {
                     struct json_object* return_node_value_2;
@@ -131,6 +131,7 @@ void handle_instances_status()
                     }
                     request_restapi_negotiate_instance(ch_url, json_object_get_string(value_obj));
                     json_object_object_add(value_obj, "status", json_object_new_string("wait_sure"));
+                    save_json(1);
                 }
             }
 
@@ -226,22 +227,24 @@ char* request_restapi_negotiate_instance(const char* uri, const char* body_json)
     sprintf_s(server_uri, 4096, "%s/api/negotiate/instance", uri);
     char res_url[10];
     struct json_object* return_node = json_tokener_parse(body_json);
-    printf("1 %s\n", json_object_get_string(return_node));
+    struct json_object* swap_list = json_object_new_object();
     struct json_object* node_value_obj;
     if (json_object_object_get_ex(return_node, "id", &node_value_obj))
     {
-        json_object_object_add(return_node, "peer_id", node_value_obj);
+        json_object_object_add(swap_list, "peer_iid", json_object_new_string(json_object_get_string(node_value_obj)));
+    }
+    return_node = json_tokener_parse(get_local_node_info());
+    if (json_object_object_get_ex(return_node, "id", &node_value_obj))
+    {
+        json_object_object_add(swap_list, "peer_node", json_object_new_string(json_object_get_string(node_value_obj)));
     }
 
-    printf("2 %s\n", json_object_get_string(return_node));
-    json_object_object_add(return_node, "peer_node", get_local_node_id());
-    printf("3 %s\n", json_object_get_string(return_node));
-    // json_object_object_add(return_node, "id", json_object_new_string("null"));
-    printf("4 %s\n", json_object_get_string(return_node));
-    json_object_object_add(return_node, "wss", json_object_new_string(""));
-    printf("5 %s\n", json_object_get_string(return_node));
-    json_object_object_add(return_node, "status", json_object_new_string("wait_sure"));
-    printf("6 %s\n", json_object_get_string(return_node));
+    //json_object_object_add(swap_list, "peer_node", get_local_node_id());
+    json_object_object_add(swap_list, "id", json_object_new_string(""));
+    json_object_object_add(swap_list, "wss_id", json_object_new_string(""));
+    json_object_object_add(swap_list, "status", json_object_new_string("wait_sure"));
 
-    return handle_request(server_uri, "POST", "", json_object_get_string(return_node));
+    handle_request(server_uri, "POST", "", json_object_get_string(swap_list));
+    json_object_put(swap_list);
+    return "";
 }

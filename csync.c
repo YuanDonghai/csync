@@ -130,10 +130,11 @@ int main()
     pthread_create(&threads[0], NULL, thread_start_socket_server, NULL);
     pthread_create(&threads[1], NULL, thread_start_restapi_server, NULL);
     pthread_create(&threads[2], NULL, thread_start_monitor_server, NULL);
-    pthread_create(&threads[3], NULL, thread_start_monitor_status, NULL);
-    const int NUM_THREADS = 4;
     sleep(1);
     load_instances_meta();
+    pthread_create(&threads[3], NULL, thread_start_monitor_status, NULL);
+    const int NUM_THREADS = 4;
+
     for (int i = 0; i < NUM_THREADS; i++)
     {
         pthread_join(threads[i], NULL);

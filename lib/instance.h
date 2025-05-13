@@ -48,6 +48,7 @@ char* _instance_get_instance();
 char* _instance_add_instance(const char* body_json);
 char* _instance_connect_instance(const char* body_json);
 const char* _node_negotiate_instance(const char* body_json);
+const char* _node_instance_update(const char* body_json);
 int check_instance_exist_with_peerid(char* node_id);
 
 void load_instances_meta();

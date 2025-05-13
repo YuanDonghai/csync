@@ -51,4 +51,5 @@ int load_file_to_json(struct json_object** json_data, const char* file_path);
 int dump_json_to_file(struct json_object* json_data, const char* file_path);
 
 void _sleep_or_Sleep(int ms);
+static char uuid_ch[39];
 #endif

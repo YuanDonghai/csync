@@ -126,7 +126,8 @@ void ev_handler_path(struct mg_connection* c, struct mg_http_message* hm, void* 
     case API_NEGOTIATE_INSTANCE:
         api_negotiate_instance(c, hm, ev_data);
         break;
-    case API_INSTANCE_ADD_DIR:
+    case API_INSTANCE_UPDATE:
+        api_instance_update(c, hm, ev_data);
         break;
     case INDEX_END:
     default:
@@ -336,6 +337,22 @@ void api_negotiate_instance(struct mg_connection* c, struct mg_http_message* hm,
         break;
     case M_POST:
         mg_http_reply(c, 200, "", "%s", _node_negotiate_instance(hm->body.buf));
+        break;
+    default:
+        mg_http_reply(c, 405, "", "");
+        break;
+    }
+}
+
+void api_instance_update(struct mg_connection* c, struct mg_http_message* hm, void* ev_data)
+{
+    enum api_method method = search_method_index(hm);
+    switch (method)
+    {
+    case M_GET:
+        break;
+    case M_POST:
+        mg_http_reply(c, 200, "", "%s", _node_instance_update(hm->body.buf));
         break;
     default:
         mg_http_reply(c, 405, "", "");

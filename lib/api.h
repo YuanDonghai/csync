@@ -22,7 +22,7 @@ enum api_controller_path {
     API_INSTANCES,
     API_NEGOTIATE_NODES,
     API_NEGOTIATE_INSTANCE,
-    API_INSTANCE_ADD_DIR,
+    API_INSTANCE_UPDATE,
     INDEX_END
 };
 #define _API_COUNTS_I INDEX_END+1
@@ -36,7 +36,7 @@ static char* api_controller[] = {
     "/api/instances",
     "/api/negotiate/nodes",
     "/api/negotiate/instance",
-    "/api/instance/add_wss",
+    "/api/instance/update",
     "/"
 };
 
@@ -93,5 +93,6 @@ void api_instances(struct mg_connection* c, struct mg_http_message* hm, void* ev
 
 void api_negotiate_nodes(struct mg_connection* c, struct mg_http_message* hm, void* ev_data);
 void api_negotiate_instance(struct mg_connection* c, struct mg_http_message* hm, void* ev_data);
+void api_instance_update(struct mg_connection* c, struct mg_http_message* hm, void* ev_data);
 
 #endif

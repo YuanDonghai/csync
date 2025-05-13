@@ -575,7 +575,7 @@ char* _instance_add_instance(const char* body_json)
     int type = 0;
     struct json_object* add_new_obj = json_tokener_parse(body_json);
     struct json_object* add_obj_address;
-    if (!json_object_object_get_ex(add_new_obj, "wss", &add_obj_address))
+    if (!json_object_object_get_ex(add_new_obj, "wss_id", &add_obj_address))
     {
         return "{\"result\":\"error\",\"error\":\"no worspace\"}";
     }
@@ -612,11 +612,15 @@ char* _instance_add_instance(const char* body_json)
         sprintf_s(ch_node, 128, "%s", json_object_get_string(element));
         struct json_object* add_new_ins = json_object_new_object();
         json_object_object_add(add_new_ins, "name", json_object_new_string(instance_name));
+
         json_object_object_add(add_new_ins, "id", json_object_new_string(gen_uuid_str()));
+        s_log(LOG_DEBUG, "add instance : %s", json_object_get_string(add_new_ins));
         json_object_object_add(add_new_ins, "wss_id", json_object_new_string(wss_id));
+        s_log(LOG_DEBUG, "add instance : %s", json_object_get_string(add_new_ins));
         json_object_object_add(add_new_ins, "peer_node", json_object_new_string(ch_node));
         json_object_object_add(add_new_ins, "type", json_object_new_int(type));
         json_object_object_add(add_new_ins, "status", json_object_new_string("adding"));
+        s_log(LOG_DEBUG, "add instance : %s", json_object_get_string(add_new_ins));
         json_object_array_add(instances_list, add_new_ins);
     }
 
@@ -663,6 +667,70 @@ const char* _node_negotiate_instance(const char* body_json)
         dump_json_to_file(instances_json, instances_file_path);
     }
     return "{}";
+}
+
+const char* _node_instance_update(const char* body_json)
+{
+    struct json_object* add_new_obj = json_tokener_parse(body_json);
+    struct json_object* add_obj_address;
+
+    if (json_object_object_get_ex(add_new_obj, "peer_iid", &add_obj_address))
+    {
+
+        return "{\"result\":\"error\",\"error\":\"this peer instance not exist\"}";
+
+    }
+    int if_peer_id_exist = 0;
+    int array_length = json_object_array_length(instances_list);
+    for (int i = 0; i < array_length; i++)
+    {
+        struct json_object* element = json_object_array_get_idx(instances_list, i);
+        struct json_object* pass_obj;
+        if (json_object_object_get_ex(element, "peer_iid", &pass_obj))
+        {
+            if (0 == strcmp(json_object_get_string(add_obj_address), json_object_get_string(pass_obj)))
+            {
+                if_peer_id_exist = 1;
+                json_object_object_add(element, "id", json_object_new_string(gen_uuid_str()));
+                if (json_object_object_get_ex(add_new_obj, "wss_id", &add_obj_address))
+                {
+                    json_object_object_add(element, "wss_id", add_obj_address);
+                }
+                if (json_object_object_get_ex(add_new_obj, "name", &add_obj_address))
+                {
+                    json_object_object_add(element, "name", add_obj_address);
+                }
+                if (json_object_object_get_ex(add_new_obj, "type", &add_obj_address))
+                {
+                    json_object_object_add(element, "type", add_obj_address);
+                }
+                json_object_object_add(element, "id", json_object_new_string("online"));
+                dump_json_to_file(instances_json, instances_file_path);
+                break;
+            }
+        }
+    }
+    if (0 == if_peer_id_exist)
+    {
+        return "{\"result\":\"error\",\"error\":\"this peer instance not exist\"}";
+    }
+    else
+    {
+        return "{\"result\":\"ok\"}";
+    }
+
+    /*
+
+          "id": "",
+            "wss_id": "",
+            "name": "csync0_instance",
+            "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
+            "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B34",
+            "type": 2
+
+    */
+
+
 }
 
 int check_instance_exist_with_peerid(char* node_id)

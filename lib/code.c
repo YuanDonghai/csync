@@ -30,25 +30,29 @@ const char* get_hostname()
 
 const char* gen_uuid_str()
 {
-    char* ch_node_id = (char*)malloc(sizeof(char) * 39);
+    //char* ch_node_id = (char*)malloc(sizeof(char) * 39);
+    char e_ch[39];
     GUID guid;
     HRESULT hr = CoCreateGuid(&guid);
     if (SUCCEEDED(hr))
     {
-        memset(ch_node_id, 0, 39);
+        memset(e_ch, 0, 39);
         WCHAR guidString[39];
         hr = StringFromGUID2(&guid, guidString, sizeof(guidString) / sizeof(guidString[0]));
         if (FAILED(hr) || hr == 0)
         {
             fprintf(stderr, "Failed to convert GUID to string\n");
         }
-        TCHARToChar(guidString, ch_node_id, 39);
+        TCHARToChar(guidString, e_ch, 39);
     }
+
+    
     // clear {}
-    char* ch_node_id_without_edge = (char*)malloc(sizeof(char) * 39);
-    memset(ch_node_id_without_edge, 0, 39);
-    memcpy(ch_node_id_without_edge, &ch_node_id[1], strlen(ch_node_id) - 2);
-    return ch_node_id_without_edge;
+    
+    memset(uuid_ch, 0, 39);
+    memcpy(uuid_ch, &e_ch[1], strlen(e_ch) - 2);
+    return uuid_ch;
+   
 }
 
 void format_path(char* path)
@@ -217,13 +221,13 @@ const char* get_hostname()
 const char* gen_uuid_str()
 {
     uuid_t uuid;
-    char uuid_str[37];
+    //char uuid_str[37];
     uuid_generate(uuid);
-    printf("gene uuiid\n");
-    uuid_unparse(uuid, uuid_str);
-    printf("uuid=%s\n", uuid_str);
-    uuid_str[36] = 0x00;
-    return uuid_str;
+    //printf("gene uuiid\n");
+    uuid_unparse(uuid, uuid_ch);
+    //printf("uuid=%s\n", uuid_str);
+    uuid_ch[36] = 0x00;
+    return uuid_ch;
    //return "12212";
 }
 
