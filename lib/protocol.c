@@ -261,7 +261,11 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
 
                 memset(protocol->file_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                char file_name[FILE_NAME_MAX_LENGTH];
+                env_char_to_char(json_object_get_string(jvalue), file_name);
+
+                // sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
                 s_log(LOG_INFO, "[server] client %s syncing file [%s] to local: [%s].", protocol->client_address, json_object_get_string(jvalue), protocol->file_name);
                 if (0 == file_exist(protocol->file_name))
                 {
@@ -302,10 +306,14 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         case CLIENT_REQ_DIR:
             if (json_object_object_get_ex(parsed_json, "dir", &jvalue))
             {
+
                 s_log(LOG_INFO, "[server] client [%s] syncing dir [%s] .", protocol->client_address, json_object_get_string(jvalue));
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                char file_name[FILE_NAME_MAX_LENGTH];
+                env_char_to_char(json_object_get_string(jvalue), file_name);
+
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
                 s_log(LOG_DEBUG, "[server] create dir %s .", dir_name);
                 protocol->instance_p->task_push = 1;
                 if (0 == create_dir(dir_name))
@@ -331,7 +339,10 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                char file_name[FILE_NAME_MAX_LENGTH];
+                env_char_to_char(json_object_get_string(jvalue), file_name);
+
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
                 s_log(LOG_INFO, "[server] client [%s] syncing file [%s] .", protocol->client_address, dir_name);
                 s_log(LOG_DEBUG, "[server] create file %s .", dir_name);
                 protocol->instance_p->task_push = 1;
@@ -354,11 +365,14 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             break;
         case CLIENT_RENAME_FILE:
 
+            char file_name1[FILE_NAME_MAX_LENGTH];
+            char file_name2[FILE_NAME_MAX_LENGTH];
+
             if (json_object_object_get_ex(parsed_json, "file1", &jvalue))
             {
-
+                env_char_to_char(json_object_get_string(jvalue), file_name1);
                 memset(fname1, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name1);
             }
             else
             {
@@ -366,9 +380,9 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             }
             if (json_object_object_get_ex(parsed_json, "file2", &jvalue))
             {
-
+                env_char_to_char(json_object_get_string(jvalue), file_name2);
                 memset(fname2, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name2);
             }
             else
             {
@@ -385,10 +399,11 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         case CLIENT_DEL_FILE:
             if (json_object_object_get_ex(parsed_json, "file", &jvalue))
             {
-
+                char file_name[FILE_NAME_MAX_LENGTH];
+                env_char_to_char(json_object_get_string(jvalue), file_name);
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
                 s_log(LOG_INFO, "client %s delete file %s.", protocol->client_address, dir_name);
                 protocol->instance_p->task_push = 1;
                 if (0 == remove(dir_name))
@@ -551,7 +566,7 @@ int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* p
     }
 
     protocol->will_recv_data_len -= len;
-    s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+    //s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
     if (protocol->will_recv_data_len <= 0)
     {
         if (0 != check_file_with_md5(protocol->delta_name, protocol->will_recv_checksum))
@@ -608,7 +623,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
     protocol->instance_p->task_push = 0;
 
     protocol->will_recv_data_len -= len;
-    s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+    // s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
     if (protocol->will_recv_data_len <= 0)
     {
         if (0 != check_file_with_md5(protocol->file_name, protocol->will_recv_checksum))

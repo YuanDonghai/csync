@@ -19,5 +19,11 @@ nodes:
 {
     "wss_id":"8BBCD53F-8DCE-44CB-A41C-B0E6B2ADCA78",
     "type":2,
-    "nodes":["8773E01E-F270-468D-BAE7-29EB93200EA5"]
+    "nodes":["0f1a0516-1456-41c9-b386-fbf5bd78c223"]
+}
+
+{
+    "wss_id":"EE386E60-9B14-4390-8555-F31F05901A41",
+    "type":2,
+    "nodes":["8BBCD53F-8DCE-44CB-A41C-B0E6B2ADCA78"]
 }

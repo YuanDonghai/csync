@@ -17,6 +17,8 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
+#include <wchar.h>
+#include <locale.h>
 #else
 //others
 #endif
@@ -29,7 +31,9 @@
 #if defined(_WIN32) || defined(_WIN64)
 void TCHARToChar(const TCHAR* tcharStr, char* charStr, size_t charStrSize);
 int char_to_wchar(char* char_str, wchar_t* wchar_str);
+int char_to_wchar_utf8(char* char_str, wchar_t* wchar_str);
 int wchar_to_char(wchar_t* wchar_str, char* char_str);
+int wchar_to_char_utf8(wchar_t* wchar_str, char* char_str);
 wchar_t* CharToWchar(const char* charStr);
 //char* WideCharToMultiByteStr(const wchar_t* wideStr);
 
@@ -40,6 +44,9 @@ void strcat_s(char* dst_buf, size_t size_of_buffer, char* src_buf);
 #else
 //others
 #endif
+
+void env_char_to_char(char* char_str, char* ch_out);
+void os_char_to_utf8(char* char_str, char* ch_out);
 
 void trans_hex_to_ascii(char* ch_in, int len, char* ch_out);
 void trans_ascii_to_hex(char* ch_in, int len, char* ch_out);

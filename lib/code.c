@@ -46,13 +46,13 @@ const char* gen_uuid_str()
         TCHARToChar(guidString, e_ch, 39);
     }
 
-    
+
     // clear {}
-    
+
     memset(uuid_ch, 0, 39);
     memcpy(uuid_ch, &e_ch[1], strlen(e_ch) - 2);
     return uuid_ch;
-   
+
 }
 
 void format_path(char* path)
@@ -135,6 +135,24 @@ int char_to_wchar(char* char_str, wchar_t* wchar_str)
     wchar_str[sizeNeeded] = 0;
     return sizeNeeded;
 }
+int char_to_wchar_utf8(char* char_str, wchar_t* wchar_str)
+{
+    if (char_str == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = MultiByteToWideChar(CP_ACP, 0, char_str, -1, NULL, 0);
+    if (sizeNeeded == 0)
+    {
+        return 0;
+    }
+    if (MultiByteToWideChar(CP_ACP, 0, char_str, -1, wchar_str, sizeNeeded) == 0)
+    {
+        return 0;
+    }
+    wchar_str[sizeNeeded] = 0;
+    return sizeNeeded;
+}
 
 int wchar_to_char(wchar_t* wchar_str, char* char_str)
 {
@@ -153,6 +171,49 @@ int wchar_to_char(wchar_t* wchar_str, char* char_str)
 
 }
 
+int wchar_to_char_utf8(wchar_t* wchar_str, char* char_str)
+{
+    if (wchar_str == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, NULL, 0, NULL, NULL);
+    if (sizeNeeded == 0)
+    {
+        return 0;
+    }
+    WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, char_str, sizeNeeded, NULL, NULL);
+
+    return sizeNeeded;
+}
+
+
+void env_char_to_char(char* char_str, char* ch_out)
+{
+    wchar_t* wcharStr = (wchar_t*)malloc(strlen(char_str) * sizeof(wchar_t));
+    char_to_wchar(char_str, wcharStr);
+    wchar_to_char(wcharStr, ch_out);
+    free(wcharStr);
+}
+
+void os_char_to_utf8(char* char_str, char* ch_out)
+{
+    int wlen = MultiByteToWideChar(CP_ACP, 0, char_str, -1, NULL, 0);
+    wchar_t* wstr = (wchar_t*)malloc(wlen * sizeof(wchar_t));
+    if (!wstr) {
+        ch_out[0] = '\0'; // 确保输出缓冲区以空字符结尾
+        return;
+    }
+    MultiByteToWideChar(CP_ACP, 0, char_str, -1, wstr, wlen);
+
+    // 第二步：将宽字符转换为UTF-8
+    int ulen = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+
+    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, ch_out, ulen, NULL, NULL);
+
+    free(wstr);
+}
+
 void _sleep_or_Sleep(int ms)
 {
     Sleep(ms);
@@ -169,7 +230,7 @@ void sprintf_s(char* buffer, size_t size_of_buffer, const char* format, ...)
 
 void strcat_s(char* dst_buf, size_t size_of_buffer, char* src_buf)
 {
-    strcat(dst_buf,src_buf);
+    strcat(dst_buf, src_buf);
 }
 
 void format_path(char* path)
@@ -208,7 +269,7 @@ const char* get_hostname()
     memset(hostname, 0, 256);
     if (gethostname(hostname, sizeof(hostname)) == 0)
     {
-        printf("hostname=%s\n",hostname);
+        printf("hostname=%s\n", hostname);
         //return hostname;
         return "localhost";
     }
@@ -228,12 +289,45 @@ const char* gen_uuid_str()
     //printf("uuid=%s\n", uuid_str);
     uuid_ch[36] = 0x00;
     return uuid_ch;
-   //return "12212";
+    //return "12212";
+}
+
+void env_char_to_char(char* char_str, char* ch_out)
+{
+
+    /*
+        setlocale(LC_ALL, "");
+        size_t len = mbstowcs(NULL, char_str, 0) + 1;
+        if (len == (size_t)-1)
+        {
+            return;
+        }
+        wchar_t* wcharStr = (wchar_t*)malloc(len * sizeof(wchar_t));
+        if (!wcharStr)
+        {
+            return;
+        }
+
+        if (mbstowcs(wcharStr, ch_out, len) == (size_t)-1)
+        {
+            free(wcharStr);
+            return;
+        }
+
+        if (wcstombs(ch_out, wcharStr, MB_CUR_MAX * len) == (size_t)-1)
+        {
+            free(wcharStr);
+            return;
+        }
+        free(wcharStr);
+        printf("%s -> %s\n", char_str, ch_out);
+        */
+    sprintf_s(ch_out, FILE_PATH_MAX_LEN, "%s", char_str);
 }
 
 void _sleep_or_Sleep(int ms)
 {
-    usleep(1000*ms);
+    usleep(1000 * ms);
 }
 #else
 //others

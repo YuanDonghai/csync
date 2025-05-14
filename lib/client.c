@@ -194,7 +194,10 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     sprintf_s(sig_file_name, 32, "%d_sig", client_socket);
     sprintf_s(delta_file_name, 32, "%d_delta", client_socket);
 
-    if (0 != client_req_sig(client_socket, file_name, short_name, &ack_sig_len, trans_check_sum))
+    char short_name_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(short_name, short_name_utf8);
+
+    if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
@@ -203,13 +206,13 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     {
         s_log(LOG_DEBUG, "[client] client will send new file.");
         memset(trans_check_sum, 0, CHECK_SUM_LEN);
-        if (0 != client_req_new(client_socket, file_name, short_name, &new_file_len, trans_check_sum))
+        if (0 != client_req_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client requre new file error.");
             return CLIENT_ERROR_REQ_NEW;
         }
         memset(trans_check_sum, 0, CHECK_SUM_LEN);
-        if (0 != client_send_new(client_socket, file_name, short_name, &new_file_len, trans_check_sum))
+        if (0 != client_send_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client send new file error.");
             return CLIENT_ERROR_SEND_NEW;
@@ -217,13 +220,13 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     }
     else
     {        
-        if (0 != client_recv_sig(client_socket, file_name, short_name, sig_file_name, &ack_sig_len, trans_check_sum))
+        if (0 != client_recv_sig(client_socket, file_name, short_name_utf8, sig_file_name, &ack_sig_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client recv sig error.");
             check_remove_file(sig_file_name);
             return CLIENT_ERROR_RECV_SIG;
         }
-        if (0 != client_req_delta(client_socket, file_name, short_name, sig_file_name, delta_file_name, &delta_len, trans_check_sum))
+        if (0 != client_req_delta(client_socket, file_name, short_name_utf8, sig_file_name, delta_file_name, &delta_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client req delta error.");
             check_remove_file(sig_file_name);
@@ -249,7 +252,9 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
 
 int client_create_dir(SOCKET client_socket, const char* dir_name)
 {
-    if (0 != client_req_dir(client_socket, dir_name))
+    char short_name_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(dir_name, short_name_utf8);
+    if (0 != client_req_dir(client_socket, short_name_utf8))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
@@ -259,7 +264,9 @@ int client_create_dir(SOCKET client_socket, const char* dir_name)
 }
 int client_create_file(SOCKET client_socket, const char* file_name)
 {
-    if (0 != client_req_file(client_socket, file_name))
+    char short_name_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(file_name, short_name_utf8);
+    if (0 != client_req_file(client_socket, short_name_utf8))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
@@ -269,7 +276,9 @@ int client_create_file(SOCKET client_socket, const char* file_name)
 }
 int client_delete_file(SOCKET client_socket, const char* file_name)
 {
-    if (0 != client_del_file(client_socket, file_name))
+    char short_name_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(file_name, short_name_utf8);
+    if (0 != client_del_file(client_socket, short_name_utf8))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
@@ -280,7 +289,11 @@ int client_delete_file(SOCKET client_socket, const char* file_name)
 
 int client_rename_file(SOCKET client_socket, const char* file_name1, const char* file_name2)
 {
-    if (0 != client_rename_file_s(client_socket, file_name1, file_name2))
+    char short_name1_utf8[FILE_PATH_MAX_LEN];
+    char short_name2_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(file_name1, short_name1_utf8);
+    os_char_to_utf8(file_name2, short_name2_utf8);
+    if (0 != client_rename_file_s(client_socket, short_name1_utf8, short_name2_utf8))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
