@@ -715,7 +715,7 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
     char csname[FILE_PATH_MAX_LEN];
     format_path(fname1);
     format_path(fname2);
-    s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
+    //s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
     for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
     {
         if (instance_p->task_queues[i].status == 2)
@@ -767,7 +767,7 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
 }
 void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* fname, char* short_name, int type)
 {
-    s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
+    //s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
     char rename_f[FILE_PATH_MAX_LEN];
     if (action == 5)
     {

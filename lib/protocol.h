@@ -25,6 +25,7 @@
 #define FILE_NAME_MAX_LENGTH 4096
 #define CHECK_SUM_LEN 32+1
 #define RESP_DATA_MAX_LENGTH 4096
+#define BIG_CACHE_SIZE  1024 * 1024 
 //#define INSTANCE_ID_LEN 32
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -65,7 +66,11 @@ typedef struct
     char will_recv_checksum[CHECK_SUM_LEN];
     size_t recv_counts;
     size_t send_counts;
+    char* big_cache;
+    size_t big_cache_counts;
+    int big_cache_malloc;
     struct instance_meta* instance_p;
+
 } sync_protocol;
 
 int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol);

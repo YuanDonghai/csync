@@ -657,6 +657,48 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* protocol)
 {
     protocol->instance_p->task_push = 1;
+    if (protocol->big_cache_malloc == 0)
+    {
+        protocol->big_cache = (char*)malloc(BIG_CACHE_SIZE * sizeof(char));
+        protocol->big_cache_counts = 0;
+        protocol->big_cache_malloc = 1;
+    }
+
+    if ((protocol->big_cache_counts + len > BIG_CACHE_SIZE))
+    {
+        FILE* file = fopen(protocol->file_name, "ab");
+        if (!file)
+        {
+            s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
+            return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
+        }
+        fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
+        protocol->big_cache_counts = 0;
+        fclose(file);
+        add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
+        protocol->instance_p->task_push = 0;
+        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+    }
+    memcpy(&protocol->big_cache[protocol->big_cache_counts], data, len);
+    protocol->big_cache_counts += len;
+    protocol->will_recv_data_len -= len;
+    if (protocol->will_recv_data_len <= 0)
+    {
+        FILE* file = fopen(protocol->file_name, "ab");
+        if (!file)
+        {
+            s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
+            return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
+        }
+        fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
+        protocol->big_cache_counts = 0;
+        fclose(file);
+        add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
+        protocol->instance_p->task_push = 0;
+        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+    }
+
+    /*
     FILE* file = fopen(protocol->file_name, "ab");
     if (!file)
     {
@@ -667,11 +709,14 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
     fclose(file);
     add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
     protocol->instance_p->task_push = 0;
+*/
 
-    protocol->will_recv_data_len -= len;
-    // s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+// s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
     if (protocol->will_recv_data_len <= 0)
     {
+        free(protocol->big_cache);
+        protocol->big_cache_malloc = 0;
+        protocol->big_cache_counts = 0;
         if (0 != check_file_with_md5(protocol->file_name, protocol->will_recv_checksum))
         {
             s_log(LOG_DEBUG, "check_file_with_md5 error.");
