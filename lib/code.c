@@ -1,36 +1,25 @@
 #include "code.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-void TCHARToChar(const TCHAR* tcharStr, char* charStr, size_t charStrSize)
-{
-#ifdef UNICODE
-    WideCharToMultiByte(CP_ACP, 0, tcharStr, -1, charStr, (int)charStrSize, NULL, NULL);
-#else
-    strncpy(charStr, tcharStr, charStrSize - 1);
-    charStr[charStrSize - 1] = '\0';
-#endif
-}
-
 const char* get_hostname()
 {
     TCHAR compute_name[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD size = sizeof(compute_name) / sizeof(TCHAR);
-    char* ch_computer_name = (char*)malloc(sizeof(char) * (MAX_COMPUTERNAME_LENGTH * 2 + 1));
-    memset(ch_computer_name, 0, MAX_COMPUTERNAME_LENGTH * 2 + 1);
+    char ch_computer_name[MAX_COMPUTERNAME_LENGTH * 4 + 1];
+    memset(ch_computer_name, 0, MAX_COMPUTERNAME_LENGTH * 4 + 1);
     if (!GetComputerNameW(compute_name, &size))
     {
         memcpy(ch_computer_name, "unkown", strlen("unkown"));
     }
     else
     {
-        TCHARToChar(compute_name, ch_computer_name, MAX_COMPUTERNAME_LENGTH * 2 + 1);
+        wchar_to_char(compute_name, ch_computer_name, MAX_COMPUTERNAME_LENGTH * 4 + 1, CP_ACP);
     }
     return ch_computer_name;
 }
 
 const char* gen_uuid_str()
 {
-    //char* ch_node_id = (char*)malloc(sizeof(char) * 39);
     char e_ch[39];
     GUID guid;
     HRESULT hr = CoCreateGuid(&guid);
@@ -41,18 +30,14 @@ const char* gen_uuid_str()
         hr = StringFromGUID2(&guid, guidString, sizeof(guidString) / sizeof(guidString[0]));
         if (FAILED(hr) || hr == 0)
         {
-            fprintf(stderr, "Failed to convert GUID to string\n");
+            return "";
         }
-        TCHARToChar(guidString, e_ch, 39);
+        wchar_to_char(guidString, e_ch, 39, CP_ACP);
     }
-
-
     // clear {}
-
     memset(uuid_ch, 0, 39);
     memcpy(uuid_ch, &e_ch[1], strlen(e_ch) - 2);
     return uuid_ch;
-
 }
 
 void format_path(char* path)
@@ -83,141 +68,97 @@ void format_path(char* path)
             path[i] = 0x00;
         }
     }
-
-
-}
-
-wchar_t* CharToWchar(const char* charStr)
-{
-    if (charStr == NULL)
-    {
-        return NULL;
-    }
-    int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, charStr, -1, NULL, 0);
-    if (sizeNeeded == 0)
-    {
-        printf("Error determining buffer size: %lu.", GetLastError());
-        return NULL;
-    }
-
-    wchar_t* wcharStr = (wchar_t*)malloc(sizeNeeded * sizeof(wchar_t));
-    if (wcharStr == NULL)
-    {
-        printf("Memory allocation failed.");
-        return NULL;
-    }
-
-    if (MultiByteToWideChar(CP_UTF8, 0, charStr, -1, wcharStr, sizeNeeded) == 0)
-    {
-        printf("Error converting string: %lu.", GetLastError());
-        free(wcharStr);
-        return NULL;
-    }
-
-    return wcharStr;
-}
-
-int char_to_wchar(char* char_str, wchar_t* wchar_str)
-{
-    if (char_str == NULL)
-    {
-        return 0;
-    }
-    int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, char_str, -1, NULL, 0);
-    if (sizeNeeded == 0)
-    {
-        return 0;
-    }
-    if (MultiByteToWideChar(CP_UTF8, 0, char_str, -1, wchar_str, sizeNeeded) == 0)
-    {
-        return 0;
-    }
-    wchar_str[sizeNeeded] = 0;
-    return sizeNeeded;
-}
-int char_to_wchar_utf8(char* char_str, wchar_t* wchar_str)
-{
-    if (char_str == NULL)
-    {
-        return 0;
-    }
-    int sizeNeeded = MultiByteToWideChar(CP_ACP, 0, char_str, -1, NULL, 0);
-    if (sizeNeeded == 0)
-    {
-        return 0;
-    }
-    if (MultiByteToWideChar(CP_ACP, 0, char_str, -1, wchar_str, sizeNeeded) == 0)
-    {
-        return 0;
-    }
-    wchar_str[sizeNeeded] = 0;
-    return sizeNeeded;
-}
-
-int wchar_to_char(wchar_t* wchar_str, char* char_str)
-{
-    if (wchar_str == NULL)
-    {
-        return 0;
-    }
-    int sizeNeeded = WideCharToMultiByte(CP_ACP, 0, wchar_str, -1, NULL, 0, NULL, NULL);
-    if (sizeNeeded == 0)
-    {
-        return 0;
-    }
-    WideCharToMultiByte(CP_ACP, 0, wchar_str, -1, char_str, sizeNeeded, NULL, NULL);
-
-    return sizeNeeded;
-
-}
-
-int wchar_to_char_utf8(wchar_t* wchar_str, char* char_str)
-{
-    if (wchar_str == NULL)
-    {
-        return 0;
-    }
-    int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, NULL, 0, NULL, NULL);
-    if (sizeNeeded == 0)
-    {
-        return 0;
-    }
-    WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, char_str, sizeNeeded, NULL, NULL);
-
-    return sizeNeeded;
-}
-
-
-void env_char_to_char(char* char_str, char* ch_out)
-{
-    wchar_t* wcharStr = (wchar_t*)malloc(strlen(char_str) * sizeof(wchar_t));
-    char_to_wchar(char_str, wcharStr);
-    wchar_to_char(wcharStr, ch_out);
-    free(wcharStr);
-}
-
-void os_char_to_utf8(char* char_str, char* ch_out)
-{
-    int wlen = MultiByteToWideChar(CP_ACP, 0, char_str, -1, NULL, 0);
-    wchar_t* wstr = (wchar_t*)malloc(wlen * sizeof(wchar_t));
-    if (!wstr) {
-        ch_out[0] = '\0'; // 确保输出缓冲区以空字符结尾
-        return;
-    }
-    MultiByteToWideChar(CP_ACP, 0, char_str, -1, wstr, wlen);
-
-    // 第二步：将宽字符转换为UTF-8
-    int ulen = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-
-    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, ch_out, ulen, NULL, NULL);
-
-    free(wstr);
 }
 
 void _sleep_or_Sleep(int ms)
 {
     Sleep(ms);
 }
+
+
+int char_to_wchar(const char* char_str, wchar_t* wchar_str, int w_len, int code)
+{
+    if (char_str == NULL)
+    {
+        return 0;
+    }
+    int size_needed = MultiByteToWideChar(code, 0, char_str, -1, NULL, 0);
+    if (size_needed == 0 || w_len < size_needed)
+    {
+        return 0;
+    }
+    else
+    {
+        if (MultiByteToWideChar(code, 0, char_str, -1, wchar_str, size_needed) == 0)
+        {
+            return 0;
+        }
+        else
+        {
+            return size_needed;
+        }
+    }
+}
+
+int wchar_to_char(wchar_t* wchar_str, const char* char_str, int w_len, int code)
+{
+    if (wchar_str == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = WideCharToMultiByte(code, 0, wchar_str, -1, NULL, 0, NULL, NULL);
+    if (sizeNeeded == 0 || w_len < sizeNeeded)
+    {
+        return 0;
+    }
+    if (WideCharToMultiByte(code, 0, wchar_str, -1, char_str, sizeNeeded, NULL, NULL) == 0)
+    {
+        return 0;
+    }
+    return sizeNeeded;
+}
+
+int char_to_char(char* char_str1, char* char_str2, int c_len, int code1, int code2)
+{
+    if (char_str1 == NULL)
+    {
+        return 0;
+    }
+    int sizeNeeded = MultiByteToWideChar(code1, 0, char_str1, -1, NULL, 0);
+    if (sizeNeeded == 0)
+    {
+        return 0;
+    }
+    wchar_t* wchar_swap = (wchar_t*)malloc(sizeNeeded * sizeof(wchar_t));
+    if (MultiByteToWideChar(code1, 0, char_str1, -1, wchar_swap, sizeNeeded) == 0)
+    {
+        free(wchar_swap);
+        return 0;
+    }
+    int char_sizeNeeded = WideCharToMultiByte(code2, 0, wchar_swap, -1, NULL, 0, NULL, NULL);
+    if (char_sizeNeeded == 0)
+    {
+        return 0;
+    }
+    char* ch_swap = (char*)malloc(char_sizeNeeded * sizeof(char));
+    if (WideCharToMultiByte(code2, 0, wchar_swap, -1, ch_swap, char_sizeNeeded, NULL, NULL) == 0)
+    {
+        free(wchar_swap);
+        free(ch_swap);
+        return 0;
+    }
+    if (c_len < char_sizeNeeded)
+    {
+        free(wchar_swap);
+        free(ch_swap);
+        return 0;
+    }
+    memcpy(char_str2, ch_swap, char_sizeNeeded);
+    free(wchar_swap);
+    free(ch_swap);
+    return char_sizeNeeded;
+}
+
 #elif defined(__linux__)
 // linux
 void sprintf_s(char* buffer, size_t size_of_buffer, const char* format, ...)
@@ -290,39 +231,6 @@ const char* gen_uuid_str()
     uuid_ch[36] = 0x00;
     return uuid_ch;
     //return "12212";
-}
-
-void env_char_to_char(char* char_str, char* ch_out)
-{
-
-    /*
-        setlocale(LC_ALL, "");
-        size_t len = mbstowcs(NULL, char_str, 0) + 1;
-        if (len == (size_t)-1)
-        {
-            return;
-        }
-        wchar_t* wcharStr = (wchar_t*)malloc(len * sizeof(wchar_t));
-        if (!wcharStr)
-        {
-            return;
-        }
-
-        if (mbstowcs(wcharStr, ch_out, len) == (size_t)-1)
-        {
-            free(wcharStr);
-            return;
-        }
-
-        if (wcstombs(ch_out, wcharStr, MB_CUR_MAX * len) == (size_t)-1)
-        {
-            free(wcharStr);
-            return;
-        }
-        free(wcharStr);
-        printf("%s -> %s\n", char_str, ch_out);
-        */
-    sprintf_s(ch_out, FILE_PATH_MAX_LEN, "%s", char_str);
 }
 
 void _sleep_or_Sleep(int ms)
@@ -429,4 +337,41 @@ int dump_json_to_file(struct json_object* json_data, const char* file_path)
     fwrite(json_object_to_json_string_ext(json_data, JSON_C_TO_STRING_PRETTY), strlen(json_object_to_json_string_ext(json_data, JSON_C_TO_STRING_PRETTY)), 1, file);
     fclose(file);
     return 0;
+}
+
+const char* trans_char_to_local(char* char_str)
+{
+#if defined(_WIN32) || defined(_WIN64)
+    char ch_r[FILE_PATH_MAX_LEN];
+    char_to_char(char_str, ch_r, FILE_PATH_MAX_LEN, CP_UTF8, CP_ACP);
+    return ch_r;
+#elif defined(__linux__)
+    return char_str;
+#else
+
+#endif
+}
+
+const char* trans_char_to_utf8(char* char_str)
+{
+#if defined(_WIN32) || defined(_WIN64)
+    char ch_r[FILE_PATH_MAX_LEN];
+    char_to_char(char_str, ch_r, FILE_PATH_MAX_LEN, CP_ACP, CP_UTF8);
+    return ch_r;
+#elif defined(__linux__)
+    return char_str;
+#else
+
+#endif
+}
+
+void os_char_to_utf8(char* char_str, char* ch_out)
+{
+#if defined(_WIN32) || defined(_WIN64)   
+    char_to_char(char_str, ch_out, FILE_PATH_MAX_LEN, CP_ACP, CP_UTF8);
+#elif defined(__linux__)
+    sprintf_s(ch_out, FILE_PATH_MAX_LEN, "%s", char_str);
+#else
+
+#endif
 }

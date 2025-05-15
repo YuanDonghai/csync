@@ -31,16 +31,16 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
         if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
-            wchar_to_char(shortPath, ch_path);
+            wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath);
         }
         else
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
-            wchar_to_char(fullPath, ch_path);
+            wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             memset(short_name, 0, FILE_PATH_MAX_LEN);
-            wchar_to_char(shortPath, short_name);
+            wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
             if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
             {
                 client_create_file(client_socket, short_name);
@@ -71,7 +71,7 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
         return CLIENT_ERROR_INITIAL_SOCKET;
     }
     */
-   s_log(LOG_INFO,"connect %s %d",server_address,client_socket);
+    s_log(LOG_INFO, "connect %s %d", server_address, client_socket);
     struct sockaddr_in serverAddr;
     *client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (*client_socket == INVALID_SOCKET)
@@ -82,7 +82,9 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     }
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
-    if (InetPtonW(AF_INET, CharToWchar(server_address), &serverAddr.sin_addr) <= 0)
+    wchar_t server_address_w[32];
+    char_to_wchar(server_address, server_address_w, 32, CP_ACP);
+    if (InetPtonW(AF_INET, server_address_w, &serverAddr.sin_addr) <= 0)
     {
         s_log(LOG_ERROR, "[client] Invalid address/ Address not supported .");
         closesocket(*client_socket);
@@ -197,6 +199,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(short_name, short_name_utf8);
 
+    s_log(LOG_DEBUG, "[client] sync file %s.", short_name);
     if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
         s_log(LOG_ERROR, "[client] client requre signature error.");
@@ -219,7 +222,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
         }
     }
     else
-    {        
+    {
         if (0 != client_recv_sig(client_socket, file_name, short_name_utf8, sig_file_name, &ack_sig_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client recv sig error.");
@@ -315,7 +318,7 @@ void client_sync_close(SOCKET client_socket)
 #else
     //others
 #endif
-    
+
 }
 
 int client_req_sig(SOCKET client_socket, const char* file_name, const char* short_name, long* ack_sig_len, char* check_sum)
@@ -334,7 +337,7 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
 
     //memset(ch_send, 0, SOCKET_BUF_MAX);
    // sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"file\" : \"%s\"}", CLIENT_REQ_SIG, file_name);
-    s_log(LOG_DEBUG, "[client] client request signature. : %s.", ch_send);
+    s_log(LOG_DEBUG, "[client] client request signature.");
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed.");
@@ -382,7 +385,7 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
         return CLIENT_ERROR_REQ_SIG;
     }
     json_object_put(parsed_json);
-   
+
     return 0;
 }
 
@@ -593,7 +596,7 @@ int client_recv_sig(SOCKET client_socket, const char* file_name, const char* sho
 
     //   memset(ch_send, 0, SOCKET_BUF_MAX);
      //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"file\" : \"%s\"}", CLIENT_RECV_SIG, file_name);
-    s_log(LOG_DEBUG, "[client] client recv signature: data=%s.", ch_send);
+    s_log(LOG_DEBUG, "[client] client recv signature.");
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed: %d.", WSAGetLastError());
@@ -636,7 +639,7 @@ int client_req_delta(SOCKET client_socket, const char* file_name, const char* sh
 {
     char ch_send[SOCKET_BUF_MAX];
     char ch_recv[SOCKET_BUF_MAX];
-    
+
     rs_result res = rdiff_delta(file_name, sig_name, delta_name);
     if (res != 0)
     {
@@ -668,7 +671,7 @@ int client_req_delta(SOCKET client_socket, const char* file_name, const char* sh
     memset(ch_send, 0, SOCKET_BUF_MAX);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
     json_object_put(node_new);
-    s_log(LOG_DEBUG, "[client] client request send delta. data: %s", ch_send);
+    s_log(LOG_DEBUG, "[client] client request send delta.");
     // memset(ch_send, 0, SOCKET_BUF_MAX);
     // sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"length\" : %d, \"checksum\" : \"%s\"}", CLIENT_SEND_DEL, lend, ch_out_hex);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
@@ -759,7 +762,7 @@ int client_req_new(SOCKET client_socket, const char* file_name, const char* shor
     FILE* file = fopen(file_name, "rb");
     if (!file)
     {
-        s_log(LOG_ERROR, "[client] config open file error. %s.", file_name);
+        s_log(LOG_ERROR, "[client] sync open file %s error.", file_name);
         return CLIENT_ERROR_REQ_NEW;
     }
     fseek(file, 0, SEEK_END);
@@ -770,7 +773,7 @@ int client_req_new(SOCKET client_socket, const char* file_name, const char* shor
     char ch_out[32];
     char ch_out_hex[64];
     memset(ch_out, 0, 32);
-    md5_stream(file, ch_out);   
+    md5_stream(file, ch_out);
     fclose(file);
     trans_ascii_to_hex(ch_out, 32, ch_out_hex);
     ch_out_hex[32] = 0;
@@ -820,7 +823,7 @@ int client_send_new(SOCKET client_socket, const char* file_name, const char* sho
     FILE* file = fopen(file_name, "rb");
     if (!file)
     {
-        s_log(LOG_ERROR, "[client] config open file error. %s.", file_name);
+        s_log(LOG_ERROR, "[client] open file %s error.", file_name);
         return CLIENT_ERROR_SEND_NEW;
     }
     fseek(file, 0, SEEK_SET);

@@ -24,6 +24,66 @@ int create_dir(const char* dirname)
     s_log(LOG_ERROR, "Failed to create folder: %s. path exist", dirname);
     return -1;
 }
+int delete_directory(LPCTSTR dir_path)
+{
+    WIN32_FIND_DATA findFileData;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    TCHAR searchPath[FILE_PATH_MAX_LEN];
+    TCHAR fullPath[FILE_PATH_MAX_LEN];
+
+    _stprintf_s(searchPath, FILE_PATH_MAX_LEN, _T("%s\\*"), dir_path);
+    hFind = FindFirstFile(searchPath, &findFileData);
+    if (hFind == INVALID_HANDLE_VALUE)
+    {
+        s_log(LOG_ERROR, "FindFirstFile failed with error % lu\n", GetLastError());
+        return -1;
+    }
+
+    do
+    {
+        const TCHAR* name = findFileData.cFileName;
+        if (_tcscmp(name, _T(".")) == 0 || _tcscmp(name, _T("..")) == 0)
+        {
+            continue;
+        }
+
+        _stprintf_s(fullPath, FILE_PATH_MAX_LEN, _T("%s\\%s"), dir_path, name);
+
+        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            delete_directory(fullPath);
+        }
+        else
+        {
+            if (!DeleteFile(fullPath))
+            {
+                s_log(LOG_ERROR, "DeleteFile failed with error %lu for file: %s\n", GetLastError(), fullPath);
+            }
+        }
+    } while (FindNextFile(hFind, &findFileData) != 0);
+
+    DWORD dwError = GetLastError();
+    if (dwError != ERROR_NO_MORE_FILES)
+    {
+        s_log(LOG_ERROR, "Error: FindNextFile failed with error %lu\n", dwError);
+    }
+
+    FindClose(hFind);
+    if (!RemoveDirectory(dir_path))
+    {
+        s_log(LOG_ERROR, "RemoveDirectory failed with error %lu for directory: %s\n", GetLastError(), dir_path);
+        return -1;
+    }
+
+    return 0;
+}
+
+int remove_dir(const char* dirname)
+{
+    wchar_t w_dirname[FILE_PATH_MAX_LEN];
+    char_to_wchar(dirname, w_dirname, FILE_PATH_MAX_LEN, CP_ACP);
+    return delete_directory(w_dirname);
+}
 #elif defined(__linux__)
 int create_dir(const char* dirname)
 {
@@ -32,6 +92,10 @@ int create_dir(const char* dirname)
         return -1;
     }
     return 0;
+}
+int remove_dir(const char* dirname)
+{
+    return remove(dirname);
 }
 #else
 // others
@@ -261,11 +325,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
 
                 memset(protocol->file_name, 0, FILE_NAME_MAX_LENGTH);
-                char file_name[FILE_NAME_MAX_LENGTH];
-                env_char_to_char(json_object_get_string(jvalue), file_name);
-
-                // sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, json_object_get_string(jvalue));
-                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
+                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_INFO, "[server] client %s syncing file [%s] to local: [%s].", protocol->client_address, json_object_get_string(jvalue), protocol->file_name);
                 if (0 == file_exist(protocol->file_name))
                 {
@@ -310,10 +370,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 s_log(LOG_INFO, "[server] client [%s] syncing dir [%s] .", protocol->client_address, json_object_get_string(jvalue));
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                char file_name[FILE_NAME_MAX_LENGTH];
-                env_char_to_char(json_object_get_string(jvalue), file_name);
-
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_DEBUG, "[server] create dir %s .", dir_name);
                 protocol->instance_p->task_push = 1;
                 if (0 == create_dir(dir_name))
@@ -339,10 +396,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             {
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                char file_name[FILE_NAME_MAX_LENGTH];
-                env_char_to_char(json_object_get_string(jvalue), file_name);
-
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_INFO, "[server] client [%s] syncing file [%s] .", protocol->client_address, dir_name);
                 s_log(LOG_DEBUG, "[server] create file %s .", dir_name);
                 protocol->instance_p->task_push = 1;
@@ -364,15 +418,10 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
 
             break;
         case CLIENT_RENAME_FILE:
-
-            char file_name1[FILE_NAME_MAX_LENGTH];
-            char file_name2[FILE_NAME_MAX_LENGTH];
-
             if (json_object_object_get_ex(parsed_json, "file1", &jvalue))
             {
-                env_char_to_char(json_object_get_string(jvalue), file_name1);
                 memset(fname1, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name1);
+                sprintf_s(fname1, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
             }
             else
             {
@@ -380,9 +429,8 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             }
             if (json_object_object_get_ex(parsed_json, "file2", &jvalue))
             {
-                env_char_to_char(json_object_get_string(jvalue), file_name2);
                 memset(fname2, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name2);
+                sprintf_s(fname2, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
             }
             else
             {
@@ -399,14 +447,12 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         case CLIENT_DEL_FILE:
             if (json_object_object_get_ex(parsed_json, "file", &jvalue))
             {
-                char file_name[FILE_NAME_MAX_LENGTH];
-                env_char_to_char(json_object_get_string(jvalue), file_name);
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
-                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, file_name);
+                sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_INFO, "client %s delete file %s.", protocol->client_address, dir_name);
                 protocol->instance_p->task_push = 1;
-                if (0 == remove(dir_name))
+                if (0 == remove_dir(dir_name))
                 {
                     set_protocol_status_ok(SERVER_DEL_FILE, protocol);
                     add_self_task_in_queue(protocol->instance_p, 2, dir_name, json_object_get_string(jvalue), 0);

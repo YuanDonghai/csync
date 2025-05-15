@@ -51,8 +51,8 @@ struct monitor_path* malloc_monitor_meta(const char* id, const char* peer_id, co
     memset(new_monitor_p->path, 0, FILE_PATH_MAX_LEN);
     sprintf_s(new_monitor_p->path, FILE_PATH_MAX_LEN, "%s", path);
     memset(new_monitor_p->w_path, 0, FILE_PATH_MAX_LEN);
-#if defined(_WIN32) || defined(_WIN64)
-    char_to_wchar(path, new_monitor_p->w_path);
+#if defined(_WIN32) || defined(_WIN64)   
+    char_to_wchar(path, new_monitor_p->w_path, FILE_PATH_MAX_LEN, CP_ACP);
 #elif defined(__linux__)
     sprintf_s(new_monitor_p->w_path, FILE_PATH_MAX_LEN, "%s", path);
     new_monitor_p->wds = (struct inotify_wd*)malloc(sizeof(struct inotify_wd));
@@ -86,7 +86,7 @@ struct monitor_path* malloc_monitor_meta_s(struct instance_meta* instance_info)
     sprintf_s(new_monitor_p->path, FILE_PATH_MAX_LEN, "%s", instance_info->path);
     memset(new_monitor_p->w_path, 0, FILE_PATH_MAX_LEN);
 #if defined(_WIN32) || defined(_WIN64)
-    char_to_wchar(instance_info->path, new_monitor_p->w_path);
+    char_to_wchar(instance_info->path, new_monitor_p->w_path, FILE_PATH_MAX_LEN, CP_ACP);
 #elif defined(__linux__)
     sprintf_s(new_monitor_p->w_path, FILE_PATH_MAX_LEN, "%s", instance_info->path);
     new_monitor_p->wds = (struct inotify_wd*)malloc(sizeof(struct inotify_wd));
@@ -287,7 +287,7 @@ void watch_directory(const wchar_t* directory_path, struct monitor_path* monitor
                 if (4 == pNotify->Action)
                 {
                     memset(FSecondPath, 0, FILE_PATH_MAX_LEN);
-                    wchar_to_char(fullPath, FSecondPath);
+                    wchar_to_char(fullPath, FSecondPath, FILE_PATH_MAX_LEN, CP_ACP);
                     offset += pNotify->NextEntryOffset;
                     pNotify = (FILE_NOTIFY_INFORMATION*)((BYTE*)pNotify + pNotify->NextEntryOffset);
                     pNotify->FileName[pNotify->FileNameLength / sizeof(WCHAR)] = 0;
@@ -337,16 +337,16 @@ void add_sync_task_in_queue_w(struct instance_meta* instance_p, int action, cons
     memset(cfname1, 0, FILE_PATH_MAX_LEN);
     memset(cfname2, 0, FILE_PATH_MAX_LEN);
 
-    wchar_to_char(fname, cfname1);
+    wchar_to_char(fname, cfname1, FILE_PATH_MAX_LEN, CP_ACP);
 
     if (1 == compare_path(instance_p->path, cfname1))
     {
         if (action == 5)
-        {       
+        {
             add_sync_task_in_queue(instance_p, action, cfname1, sec_fname, type);
         }
         else
-        {           
+        {
             add_sync_task_in_queue(instance_p, action, cfname1, cfname2, type);
         }
 
@@ -410,7 +410,7 @@ void* thread_start_sync_task(void* lpParam)
             continue;
         }
         */
-        if (instance_p->task_push==1)
+        if (instance_p->task_push == 1)
         {
             _sleep_or_Sleep(100);
             continue;
@@ -423,9 +423,9 @@ void* thread_start_sync_task(void* lpParam)
             }
             if (instance_p->task_queues[i].status == 1)
             {
-                
+
                 if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
-                {                    
+                {
                     client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
                     instance_p->need_reconnect = 0;
                     client_sync_path(instance_p->con, instance_p->peer_id);
@@ -577,7 +577,7 @@ void watch_directory(const char* directory_path, struct monitor_path* monitor)
             {
                 if (event->mask & IN_CREATE)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 1,  monitor->path,full_path, check_path_type(full_path));
+                    add_sync_task_in_queue_w(it_i_p, 1, monitor->path, full_path, check_path_type(full_path));
                     if (1 == check_path_type(full_path))
                     {
                         add_watch_recursive(fd, full_path, monitor->wds);
@@ -585,11 +585,11 @@ void watch_directory(const char* directory_path, struct monitor_path* monitor)
                 }
                 if (event->mask & IN_MODIFY)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 3,  monitor->path,full_path, check_path_type(full_path));
+                    add_sync_task_in_queue_w(it_i_p, 3, monitor->path, full_path, check_path_type(full_path));
                 }
                 if (event->mask & IN_DELETE)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 2,  monitor->path,full_path, check_path_type(full_path));
+                    add_sync_task_in_queue_w(it_i_p, 2, monitor->path, full_path, check_path_type(full_path));
                 }
                 if (event->mask & IN_MOVED_FROM)
                 {
@@ -613,12 +613,12 @@ void watch_directory(const char* directory_path, struct monitor_path* monitor)
     close(fd);
 }
 void add_sync_task_in_queue_w(struct instance_meta* instance_p, int action, const char* sec_fname, const char* fname, int type)
-{    
+{
     char cfname1[FILE_PATH_MAX_LEN];
     char cfname2[FILE_PATH_MAX_LEN];
     memset(cfname1, 0, FILE_PATH_MAX_LEN);
-    memset(cfname2, 0, FILE_PATH_MAX_LEN);    
-   
+    memset(cfname2, 0, FILE_PATH_MAX_LEN);
+
     if (1 == compare_path(instance_p->path, fname))
     {
         if (action == 5)
@@ -763,24 +763,24 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
             }
         }
         */
-    }    
+    }
 }
 void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* fname, char* short_name, int type)
 {
     s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
     char rename_f[FILE_PATH_MAX_LEN];
-    if(action==5)
+    if (action == 5)
     {
         sprintf_s(rename_f, FILE_PATH_MAX_LEN, "%s", &fname[strlen(instance_p->path) + 1]);
         s_log(LOG_DEBUG, "rename %s", rename_f);
     }
-   
+
     for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
     {
         if (instance_p->task_queues[i].status == 1)
         {
             //if (instance_p->task_queues[i].action == action && instance_p->task_queues[i].type == type && 0 == strcmp(instance_p->task_queues[i].name, fname) && 0 == strcmp(instance_p->task_queues[i].short_name, short_name))
-          
+
             if (action == 5)
             {
                 s_log(LOG_DEBUG, "rename %s %s", rename_f, instance_p->task_queues[i].name);
@@ -798,12 +798,12 @@ void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* 
                     return;
                 }
             }
-           
+
         }
     }
 
     for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
-    {       
+    {
         if (instance_p->task_queues[i].status < 1)
         {
             instance_p->task_queues[i].action = action;
@@ -814,7 +814,7 @@ void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* 
             instance_p->task_queues[i].status = 2;
             break;
         }
-    }   
+    }
 }
 
 int compare_path(const char* path1, const char* path2)
@@ -849,7 +849,7 @@ int compare_path(const char* path1, const char* path2)
 
     if (same_len == len2)
     {
-        if (path1[same_len] == '\\'||path1[same_len] == '/')
+        if (path1[same_len] == '\\' || path1[same_len] == '/')
         {
             return 2;
         }
@@ -1131,7 +1131,7 @@ void modify_os_file_name(int os_type, char* fname)
     {
         if (fname[i] == ch[(os_type + 1) % 2])
         {
-            fname[i] = ch[os_type  % 2];
+            fname[i] = ch[os_type % 2];
         }
     }
 }

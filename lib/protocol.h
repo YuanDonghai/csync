@@ -29,6 +29,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #define PATH_ADD_STRING "\\"
+int delete_directory(LPCTSTR dir_path);
 #elif defined(__linux__)
 #define PATH_ADD_STRING "/"
 #else
@@ -83,6 +84,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
 
 int update_instance(const char* instance_id, sync_protocol* protocol);
 int create_dir(const char* dirname);
+int remove_dir(const char* dirname);
 BOOL file_exist(const char* filename);
 int touch_file(const char* filename);
 long get_file_length(char* fname);
