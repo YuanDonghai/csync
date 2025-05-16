@@ -29,7 +29,7 @@ DWORD WINAPI thread_start_restapi_server(LPVOID lpParam)
 DWORD WINAPI thread_start_monitor_server(LPVOID lpParam)
 {
     s_log(LOG_INFO, "starting monitor server.");
-    start_monitor_entry();
+    start_monitor_entry(get_is_time_adj());
     return 0;
 }
 
@@ -72,7 +72,7 @@ void* thread_start_monitor_server(void* lpParam)
 
     }
     s_log(LOG_INFO, "starting monitor server.");
-    start_monitor_entry();
+    start_monitor_entry(get_is_time_adj());
     return 0;
 }
 

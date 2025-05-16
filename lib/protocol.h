@@ -25,7 +25,7 @@
 #define FILE_NAME_MAX_LENGTH 4096
 #define CHECK_SUM_LEN 32+1
 #define RESP_DATA_MAX_LENGTH 4096
-#define BIG_CACHE_SIZE  1024 * 1024 
+#define BIG_CACHE_SIZE  1024 * 1024 *4
 //#define INSTANCE_ID_LEN 32
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -64,6 +64,7 @@ typedef struct
     long next_data_len;
     long will_recv_data_len;
     char will_recv_checksum[CHECK_SUM_LEN];
+    long data_recv_data_len;
     size_t recv_counts;
     size_t send_counts;
     char* big_cache;
@@ -88,6 +89,7 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* protocol);
 
 int update_instance(const char* instance_id, sync_protocol* protocol);
+int check_locals_time(sync_protocol* protocol);
 int create_dir(const char* dirname);
 int remove_dir(const char* dirname);
 BOOL file_exist(const char* filename);

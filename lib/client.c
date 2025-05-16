@@ -32,6 +32,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
+            s_log(LOG_DEBUG, "[sync dir] create dir: %s.", ch_path);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath);
         }
@@ -41,14 +42,23 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             memset(short_name, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
+            s_log(LOG_DEBUG, "[sync dir] sync file: %s %s.", ch_path, short_name);
+            format_file_name(short_name);
+            // client_sync_file(client_socket, ch_path, short_name);
             if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
             {
-                client_create_file(client_socket, short_name);
+                if (0 < client_sync_empty_file(client_socket, ch_path, short_name))
+                {
+                    client_create_file(client_socket, short_name);
+                }
+
             }
             else
             {
                 client_sync_file(client_socket, ch_path, short_name);
             }
+
+
         }
     }
 
@@ -102,6 +112,76 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     return 0;
 }
 
+long client_get_file_time(const char* fname)
+{
+    HANDLE hFile;
+    FILETIME ftCreate, ftAccess, ftModify;
+    SYSTEMTIME stUTC, stLocal;
+    time_t fileTime;
+    wchar_t wfilename[FILE_PATH_MAX_LEN];
+    char_to_wchar(fname, wfilename, FILE_PATH_MAX_LEN, CP_ACP);
+    hFile = CreateFile(wfilename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+
+    if (!GetFileTime(hFile, &ftCreate, &ftAccess, &ftModify))
+    {
+        CloseHandle(hFile);
+        return 0;
+    }
+
+    CloseHandle(hFile);
+    if (!FileTimeToSystemTime(&ftModify, &stUTC))
+    {
+        return 0;
+    }
+
+    if (!SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal))
+    {
+        return 0;
+    }
+
+    SYSTEMTIME stLocalToFT;
+    if (!SystemTimeToFileTime(&stLocal, &ftModify))
+    {
+        return 0;
+    }
+
+    ULARGE_INTEGER uli;
+    uli.LowPart = ftModify.dwLowDateTime;
+    uli.HighPart = ftModify.dwHighDateTime;
+    fileTime = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000ULL);
+
+    return fileTime;
+}
+
+long client_update_time(long timel)
+{
+    struct tm tm_time;
+    gmtime_s(&tm_time, &timel);
+
+    SYSTEMTIME st;
+    st.wYear = tm_time.tm_year + 1900;
+    st.wMonth = tm_time.tm_mon + 1;
+    st.wDay = tm_time.tm_mday;
+    st.wHour = tm_time.tm_hour;
+    st.wMinute = tm_time.tm_min;
+    st.wSecond = tm_time.tm_sec;
+    st.wMilliseconds = 0;
+
+
+    if (!SetSystemTime(&st)) {
+
+        return 1;
+    }
+
+    return 0;
+
+}
+
 #elif defined(__linux__)
 // linux
 int WSAGetLastError()
@@ -137,6 +217,34 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     return 0;
 }
 
+long client_get_file_time(const char* fname)
+{
+    struct stat file_stat;
+
+    if (stat(fname, &file_stat) == -1)
+    {
+
+        return 0;
+    }
+
+    time_t last_modified = file_stat.st_mtime;
+
+    return last_modified + 8 * 3600;
+}
+
+long client_update_time(long timel)
+{
+    struct timeval tv;
+
+    tv.tv_sec = timel;
+    tv.tv_usec = 0;
+
+    if (settimeofday(&tv, NULL) == -1)
+    {
+        return 1;
+    }
+    return 0;
+}
 #else
 //others
 #endif
@@ -182,6 +290,45 @@ int client_sync_path(SOCKET client_socket, const char* instance_id)
     return 0;
 }
 
+int client_sync_time(SOCKET client_socket)
+{
+    char ch_send[SOCKET_BUF_MAX];
+    char ch_recv[SOCKET_BUF_MAX];
+
+    memset(ch_send, 0, SOCKET_BUF_MAX);
+    sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %ld}", TIME_SYNC);
+    s_log(LOG_DEBUG, "[client] client sync time .");
+    if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
+    {
+        s_log(LOG_ERROR, "[client] send failed.");
+        return CLIENT_ERROR_REQ_NEW;
+    }
+    memset(ch_recv, 0, SOCKET_BUF_MAX);
+    long recv_len = recv(client_socket, ch_recv, SOCKET_BUF_MAX, 0);
+    long server_time = 0;
+    if (recv_len > 0)
+    {
+        struct json_object* parsed_json;
+        parsed_json = json_tokener_parse(ch_recv);
+        struct json_object* jres;
+        if (json_object_object_get_ex(parsed_json, "time", &jres))
+        {
+            server_time = json_object_get_int64(jres);
+            if (server_time > 0)
+            {
+                client_update_time(server_time);
+            }
+        }
+        json_object_put(parsed_json);
+    }
+    else
+    {
+        s_log(LOG_ERROR, "[client] client_sync_time Recv failed: .");
+        return CLIENT_ERROR_REQ_NEW;
+    }
+    return 0;
+}
+
 int client_sync_file(SOCKET client_socket, const char* file_name, const char* short_name)
 {
     long ack_sig_len = 0;
@@ -205,21 +352,30 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
         s_log(LOG_ERROR, "[client] client requre signature error.");
         return CLIENT_ERROR_REQ_SIG;
     }
-    if (ack_sig_len == 0)
+    if (ack_sig_len <= 0)
     {
-        s_log(LOG_DEBUG, "[client] client will send new file.");
-        memset(trans_check_sum, 0, CHECK_SUM_LEN);
-        if (0 != client_req_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
+        if (ack_sig_len == 0)
         {
-            s_log(LOG_ERROR, "[client] client requre new file error.");
-            return CLIENT_ERROR_REQ_NEW;
+            s_log(LOG_DEBUG, "[client] client will send new file.");
+            memset(trans_check_sum, 0, CHECK_SUM_LEN);
+            if (0 != client_req_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
+            {
+                s_log(LOG_ERROR, "[client] client requre new file error.");
+                return CLIENT_ERROR_REQ_NEW;
+            }
+            memset(trans_check_sum, 0, CHECK_SUM_LEN);
+            if (0 != client_send_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
+            {
+                s_log(LOG_ERROR, "[client] client send new file error.");
+                return CLIENT_ERROR_SEND_NEW;
+            }
         }
-        memset(trans_check_sum, 0, CHECK_SUM_LEN);
-        if (0 != client_send_new(client_socket, file_name, short_name_utf8, &new_file_len, trans_check_sum))
+        if (ack_sig_len == -1)
         {
-            s_log(LOG_ERROR, "[client] client send new file error.");
-            return CLIENT_ERROR_SEND_NEW;
+            s_log(LOG_DEBUG, "[client] client file time is older .");
+            return 0;
         }
+
     }
     else
     {
@@ -251,6 +407,31 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     }
 
     return 0;
+}
+int client_sync_empty_file(SOCKET client_socket, const char* file_name, const char* short_name)
+{
+    long ack_sig_len = 0;
+    long delta_len = 0;
+    long new_file_len = 0;
+    char trans_check_sum[CHECK_SUM_LEN];
+    memset(trans_check_sum, 0, CHECK_SUM_LEN);
+    char sig_file_name[32];
+    char delta_file_name[32];
+    memset(sig_file_name, 0, 32);
+    memset(delta_file_name, 0, 32);
+    sprintf_s(sig_file_name, 32, "%d_sig", client_socket);
+    sprintf_s(delta_file_name, 32, "%d_delta", client_socket);
+
+    char short_name_utf8[FILE_PATH_MAX_LEN];
+    os_char_to_utf8(short_name, short_name_utf8);
+
+    s_log(LOG_DEBUG, "[client] sync file %s.", short_name);
+    if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
+    {
+        s_log(LOG_ERROR, "[client] client requre signature error.");
+        return CLIENT_ERROR_REQ_SIG;
+    }
+    return ack_sig_len;
 }
 
 int client_create_dir(SOCKET client_socket, const char* dir_name)
@@ -330,6 +511,8 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
     struct json_object* node_new = json_object_new_object();
     json_object_object_add(node_new, "type", json_object_new_int(CLIENT_REQ_SIG));
     json_object_object_add(node_new, "file", json_object_new_string(short_name));
+    json_object_object_add(node_new, "time", json_object_new_int64(client_get_file_time(file_name)));
+
     memset(ch_send, 0, SOCKET_BUF_MAX);
     //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"dir\" : \"%s\"}", CLIENT_REQ_DIR, dir_name);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
@@ -874,4 +1057,50 @@ int check_remove_file(const char* file_name)
         return remove(file_name);
     }
     return 0;
+}
+
+void format_file_name(char* fname)
+{
+    int i = 0;
+    int start_index = 0;
+    for (i = 0;i < strlen(fname);i++)
+    {
+        if (fname[i] == '\\' || fname[i] == '/')
+        {
+            continue;
+        }
+        else
+        {
+            start_index = i;
+            break;
+        }
+    }
+    if (start_index != 0)
+    {
+        int j = 0;
+        for (i = start_index;i < strlen(fname);i++)
+        {
+            fname[j++] = fname[i];
+        }
+        fname[j] = 0;
+    }
+
+
+
+}
+
+long client_get_file_length(char* fname)
+{
+    FILE* file = fopen(fname, "rb");
+    if (!file)
+    {
+        s_log(LOG_DEBUG, "config open file error. %s.", fname);
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+
+    long len = ftell(file);
+    fclose(file);
+    return len;
 }

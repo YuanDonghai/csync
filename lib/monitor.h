@@ -7,6 +7,9 @@
 #include "log.h"
 
 #if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#include <LM.h>
+#pragma comment(lib, "netapi32.lib")
 #elif defined(__linux__)
 // linux
 #include <stdio.h>
@@ -60,6 +63,8 @@ struct instance_meta
     int task_push;
     task_meta task_queues[TASK_QUEUE_COUNTS];
     time_t timestap;
+    int is_time_adj;
+    int all_sync_status;
     int time_out_status;
     int need_reconnect;
     struct instance_meta *next;
@@ -111,8 +116,9 @@ struct wd_s
 #endif
 
 static struct monitor_path *monitor_head_p;
+static int is_time_adj = 0;
 
-void start_monitor_entry();
+void start_monitor_entry(int is_time_adj_g);
 void clean_monitor_list();
 
 void add_instance_in_monitor(const char *id, const char *peer_id, const char *name, const char *path, const char *address, int port);
@@ -153,5 +159,8 @@ long monitor_get_file_length(char *fname);
 struct instance_meta *search_instance_p(const char *instance_id);
 
 void modify_os_file_name(int os_type, char *fname);
+
+int get_time_adj_status();
+long get_file_timestap(const char* fname);
 
 #endif

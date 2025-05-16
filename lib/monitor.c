@@ -1,8 +1,13 @@
 #include "monitor.h"
 
 
-void start_monitor_entry()
+void start_monitor_entry(int is_time_adj_g)
 {
+    if (is_time_adj_g == 0)
+    {
+        s_log(LOG_DEBUG, "check time adjustment.");
+        is_time_adj = get_time_adj_status();
+    }
     while (1)
     {
         clean_monitor_list();
@@ -132,25 +137,45 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
     int i = 0;
     while (1)
     {
-        /*
+        if (instance_p->is_time_adj == 0)
+        {
+            if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+            {
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
+                client_sync_time(instance_p->con);
+                closesocket(instance_p->con);
+                instance_p->is_time_adj = 1;
+            }
+
+        }
         // start sync the instance all file
+
         if (instance_p->manual_sync_status == 0)
         {
             s_log(LOG_INFO, "starting sync instance:%s dir.", instance_p->id);
             if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
             {
-                client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
                 instance_p->need_reconnect = FALSE;
-                client_sync_path(instance_p->con, instance_p->id);
+                client_sync_path(instance_p->con, instance_p->peer_id);
             }
             TCHAR full_path[FILE_PATH_MAX_LEN];
-            char_to_wchar(instance_p->path, full_path);
+            char_to_wchar(instance_p->path, full_path, FILE_PATH_MAX_LEN, CP_ACP);
             client_sync_dir(instance_p->con, full_path, L"");
             instance_p->manual_sync_status = 1;
             s_log(LOG_INFO, "sync instance:%s dir over.", instance_p->id);
             continue;
         }
-        */
+
+
         if (instance_p->task_push == 1)
         {
             _sleep_or_Sleep(100);
@@ -172,9 +197,12 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                     s_log(LOG_DEBUG, "[client] client will sync file: %s", instance_p->task_queues[i].short_name);
                     if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
                     {
-                        client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
-                        instance_p->need_reconnect = FALSE;
-                        client_sync_path(instance_p->con, instance_p->peer_id);
+                        if (0 == client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                        {
+                            instance_p->need_reconnect = FALSE;
+                            client_sync_path(instance_p->con, instance_p->peer_id);
+                        }
+
                         //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                     }
                     else
@@ -384,6 +412,77 @@ int check_path_type(const char* path)
     }
 }
 
+int get_time_adj_status()
+{
+    DWORD timeAdjustment = 0;
+    DWORD timeIncrement = 0;
+    BOOL isTimeAdjustmentDisabled = FALSE;
+    int is_time_adj_s = 0;
+
+    if (GetSystemTimeAdjustment(&timeAdjustment, &timeIncrement, &isTimeAdjustmentDisabled))
+    {
+        if (!isTimeAdjustmentDisabled)
+        {
+            is_time_adj_s = 1;
+        }
+        else
+        {
+            is_time_adj_s = 0;
+        }
+    }
+    else
+    {
+        is_time_adj_s = 0;
+    }
+    return is_time_adj_s;
+}
+
+long get_file_timestap(const char* fname)
+{
+    HANDLE hFile;
+    FILETIME ftCreate, ftAccess, ftModify;
+    SYSTEMTIME stUTC, stLocal;
+    time_t fileTime;
+    wchar_t wfilename[FILE_PATH_MAX_LEN];
+    char_to_wchar(fname, wfilename, FILE_PATH_MAX_LEN, CP_ACP);
+    hFile = CreateFile(wfilename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+
+    if (!GetFileTime(hFile, &ftCreate, &ftAccess, &ftModify))
+    {
+        CloseHandle(hFile);
+        return 0;
+    }
+
+    CloseHandle(hFile);
+    if (!FileTimeToSystemTime(&ftModify, &stUTC))
+    {
+        return 0;
+    }
+
+    if (!SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal))
+    {
+        return 0;
+    }
+
+    SYSTEMTIME stLocalToFT;
+    if (!SystemTimeToFileTime(&stLocal, &ftModify))
+    {
+        return 0;
+    }
+
+    ULARGE_INTEGER uli;
+    uli.LowPart = ftModify.dwLowDateTime;
+    uli.HighPart = ftModify.dwHighDateTime;
+    fileTime = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000ULL);
+
+    return fileTime;
+}
+
 #elif defined(__linux__)
 // linux
 void* thread_start_monitor_directory(void* lpParam)
@@ -402,25 +501,40 @@ void* thread_start_sync_task(void* lpParam)
     int i = 0;
     while (1)
     {
-        /*
+        if (instance_p->is_time_adj == 0)
+        {
+            if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+            {
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
+                client_sync_time(instance_p->con);
+                close(instance_p->con);
+                instance_p->is_time_adj = 1;
+            }
+
+        }
         // start sync the instance all file
+
         if (instance_p->manual_sync_status == 0)
         {
             s_log(LOG_INFO, "starting sync instance:%s dir.", instance_p->id);
             if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
             {
                 client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
-                instance_p->need_reconnect = FALSE;
-                client_sync_path(instance_p->con, instance_p->id);
+                instance_p->need_reconnect = 0;
+                client_sync_path(instance_p->con, instance_p->peer_id);
             }
-            TCHAR full_path[FILE_PATH_MAX_LEN];
-            char_to_wchar(instance_p->path, full_path);
-            client_sync_dir(instance_p->con, full_path, L"");
+
+            client_sync_dir(instance_p->con, instance_p->path, "");
             instance_p->manual_sync_status = 1;
             s_log(LOG_INFO, "sync instance:%s dir over.", instance_p->id);
             continue;
         }
-        */
+
+
         if (instance_p->task_push == 1)
         {
             _sleep_or_Sleep(100);
@@ -722,6 +836,43 @@ int check_path_type(const char* path)
         return 1;
     }
 }
+
+int get_time_adj_status()
+{
+    FILE* fp = popen("timedatectl status | grep 'synchronized: yes'", "r");
+    if (fp == NULL)
+    {
+        return 0;
+    }
+
+    char buffer[256];
+    int is_synchronized = 0;
+    while (fgets(buffer, sizeof(buffer), fp) != NULL)
+    {
+        if (strstr(buffer, "synchronized: yes"))
+        {
+            is_synchronized = 1;
+            break;
+        }
+    }
+    pclose(fp);
+    return is_synchronized;
+}
+
+long get_file_timestap(const char* fname)
+{
+    struct stat file_stat;
+
+    if (stat(fname, &file_stat) == -1)
+    {
+
+        return 0;
+    }
+
+    time_t last_modified = file_stat.st_mtime;
+
+    return last_modified + 3600 * 8;
+}
 #else
 //others
 #endif
@@ -920,6 +1071,7 @@ struct instance_meta* malloc_instance_meta_s(struct instance_meta* instance_info
     new_instance_p->need_reconnect = 1;
     new_instance_p->next = NULL;
     new_instance_p->manual_sync_status = 0;
+    new_instance_p->is_time_adj = is_time_adj;
 
     // start sync task thread
 #if defined(_WIN32) || defined(_WIN64)
@@ -1141,3 +1293,4 @@ void modify_os_file_name(int os_type, char* fname)
         }
     }
 }
+

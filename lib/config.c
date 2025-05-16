@@ -77,6 +77,10 @@ int load_default_base_config(const char* file_path)
     {
         s_log(LOG_ERROR, "json add error");
     }
+    if (0 != json_object_object_add(base_config, "is_time_adj", json_object_new_int(0)))
+    {
+        s_log(LOG_ERROR, "json add error");
+    }
     // save
     dump_json_to_file(base_config, file_path);
 }
@@ -342,4 +346,16 @@ void get_local_service(char* res)
     sprintf_s(res, 4096, "{\"restapi\":{\"port\":%d,\"listen_address\" : \"%s\"},\"sync\":{\"port\":%d,\"listen_address\" : \"%s\"}}", rest_port, rest_addr, sync_port, sync_addr);
     // s_log(LOG_DEBUG, "get_local_service %s.", res);
      // return res_string;
+}
+
+int get_is_time_adj()
+{
+    struct json_object* node_obj;
+    if (json_object_object_get_ex(base_config, "is_time_adj", &node_obj))
+    {
+
+        return json_object_get_int(node_obj);
+
+    }
+    return 0;
 }

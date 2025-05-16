@@ -60,5 +60,6 @@ void update_sub_json(enum CONFIG_PATH_TYPE type);
 char* get_local_node_info();
 const char* get_local_node_id();
 void get_local_service(char* res);
+int get_is_time_adj();
 
 #endif

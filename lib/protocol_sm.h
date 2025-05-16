@@ -5,6 +5,7 @@ enum sync_status
 {
     READY_BASE,
     PATH_SYNC,
+    TIME_SYNC,
     READY_SYNC,
     CLIENT_REQ_DIR,
     SERVER_ACK_DIR,

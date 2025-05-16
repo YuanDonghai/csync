@@ -226,6 +226,11 @@ void post_update_status(sync_protocol* protocol)
         protocol->data_len = 0;
         free(protocol->data);
         break;
+    case TIME_SYNC:
+        protocol->status = READY_BASE;
+        protocol->data_len = 0;
+        free(protocol->data);
+        break;
     default:
         break;
     }
@@ -272,11 +277,13 @@ int trans_status_on_path(char* data, unsigned long len, sync_protocol* protocol)
         return SYNC_STATUS_ERROR_FORMAT;
     }
     struct json_object* jtype;
+    struct json_object* jvalue;
+
     if (json_object_object_get_ex(parsed_json, "type", &jtype))
     {
-        if (PATH_SYNC == json_object_get_int(jtype))
+        switch (json_object_get_int(jtype))
         {
-            struct json_object* jvalue;
+        case PATH_SYNC:
             if (json_object_object_get_ex(parsed_json, "id", &jvalue))
             {
                 if (0 == update_instance(json_object_get_string(jvalue), protocol))
@@ -293,10 +300,13 @@ int trans_status_on_path(char* data, unsigned long len, sync_protocol* protocol)
             {
                 return SYNC_STATUS_ERROR_FORMAT;
             }
-        }
-        else
-        {
+            break;
+        case TIME_SYNC:
+            check_locals_time(protocol);
+            break;
+        default:
             return SYNC_STATUS_ERROR_ERROR_STEP;
+            break;
         }
     }
     return 0;
@@ -342,20 +352,46 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 }
                 else
                 {
-                    rdiff_sig(protocol->file_name, protocol->sig_name);
                     char respon_string[RESP_DATA_MAX_LENGTH];
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
-                    long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
-                    sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":%ld,\"checksum\":\"%s\"}", SERVER_ACK_SIG, sig_f_len, protocol->will_recv_checksum);
+
+                    long file_time = 0;
+                    long local_file_time = 0;
+                    if (json_object_object_get_ex(parsed_json, "time", &jvalue))
+                    {
+                        file_time = json_object_get_int64(jvalue);
+                        local_file_time = get_file_timestap(protocol->file_name);
+                        s_log(LOG_DEBUG, "[time] %ld %ld.", file_time, local_file_time);
+                        if (local_file_time > file_time)
+                        {
+                            sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":-1,\"checksum\":\"\"}", SERVER_ACK_SIG);
+                            protocol->status = ERROR_STS;
+                            s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->file_name, -1);
+                        }
+                        else
+                        {
+                            rdiff_sig(protocol->file_name, protocol->sig_name);
+                            long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
+                            sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":%ld,\"checksum\":\"%s\"}", SERVER_ACK_SIG, sig_f_len, protocol->will_recv_checksum);
+                            protocol->next_data_len = sig_f_len;
+                            protocol->next_data = (char*)malloc(sizeof(char) * protocol->next_data_len);
+
+                            read_file_to_buff(protocol->sig_name, protocol->next_data, protocol->next_data_len);
+                            int res = remove(protocol->sig_name);
+                            protocol->status = CLIENT_REQ_SIG;
+                            s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->file_name, sig_f_len);
+                        }
+                    }
+
                     protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
                     protocol->data_len = strlen(respon_string);
                     memcpy(protocol->data, respon_string, strlen(respon_string));
-                    protocol->next_data_len = sig_f_len;
-                    protocol->next_data = (char*)malloc(sizeof(char) * protocol->next_data_len);
-                    read_file_to_buff(protocol->sig_name, protocol->next_data, protocol->next_data_len);
-                    int res = remove(protocol->sig_name);
-                    protocol->status = CLIENT_REQ_SIG;
-                    s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->file_name, sig_f_len);
+
+
+
+
+
+
                 }
             }
             else
@@ -513,6 +549,7 @@ int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protoc
             if (json_object_object_get_ex(parsed_json, "length", &jvalue))
             {
                 protocol->will_recv_data_len = json_object_get_int(jvalue);
+                protocol->data_recv_data_len = protocol->will_recv_data_len;
             }
             if (json_object_object_get_ex(parsed_json, "checksum", &jvalue))
             {
@@ -732,7 +769,9 @@ int update_instance(const char* instance_id, sync_protocol* protocol)
     char ch_instance_path[FILE_NAME_MAX_LENGTH];
     memset(protocol->instance_id, 0, INSTANCE_ID_LEN);
     memcpy(protocol->instance_id, instance_id, strlen(instance_id));
+
     get_instance_path(protocol->instance_id, ch_instance_path);
+    s_log(LOG_DEBUG, "instance id %s, path=%s", protocol->instance_id, ch_instance_path);
 #if defined(_WIN32) || defined(_WIN64)
     if (0 == _access(ch_instance_path, 0))
 #elif defined(__linux__)
@@ -766,6 +805,27 @@ int update_instance(const char* instance_id, sync_protocol* protocol)
     }
     s_log(LOG_ERROR, "file %s not .", ch_instance_path);
     return 1;
+}
+
+int check_locals_time(sync_protocol* protocol)
+{
+    time_t cur_time;
+    time(&cur_time);
+    char respon_string[RESP_DATA_MAX_LENGTH];
+    memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
+    if (1 == get_time_adj_status())
+    {
+        sprintf_s(respon_string, 4096, "{\"type\": %d,\"time\":%ld}", TIME_SYNC, cur_time);
+
+    }
+    else
+    {
+        sprintf_s(respon_string, 4096, "{\"type\": %d,\"time\":%ld}", TIME_SYNC, 0);
+    }
+    protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
+    protocol->data_len = strlen(respon_string);
+    memcpy(protocol->data, respon_string, strlen(respon_string));
+    protocol->status = TIME_SYNC;
 }
 
 BOOL file_exist(const char* filename)

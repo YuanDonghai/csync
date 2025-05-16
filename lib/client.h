@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 typedef int SOCKET;
 #define INVALID_SOCKET  (int)(~0)
 #define SOCKET_ERROR            (-1)
@@ -54,8 +55,10 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
 
 
 
+
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket);
 int client_sync_path(SOCKET client_socket, const char* instance_id);
+int client_sync_time(SOCKET client_socket);
 int client_sync_file(SOCKET client_socket, const char* file_name, const char* short_name);
 int client_create_dir(SOCKET client_socket, const char* dir_name);
 int client_create_file(SOCKET client_socket, const char* file_name);
@@ -77,4 +80,8 @@ int client_send_new(SOCKET client_socket, const char* file_name, const char* sho
 
 int check_remove_file(const char* file_name);
 
+long client_get_file_time(const char* fname);
+long client_update_time(long timel);
+
+void format_file_name(char* fname);
 #endif
