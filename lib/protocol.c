@@ -632,11 +632,15 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
     sprintf_s(ch_swap_name, FILE_NAME_MAX_LENGTH, "%s_swap", protocol->file_name);
     s_log(LOG_DEBUG, "[server] patch file to %s.", protocol->file_name);
     rs_result res = rdiff_patch(protocol->file_name, protocol->delta_name, protocol->patch_name);
-    protocol->instance_p->task_push = 1;
-    // add_self_task_in_queue(protocol->instance_p, 1, ch_swap_name, "", 0);
-    // add_self_task_in_queue(protocol->instance_p, 3, ch_swap_name, "", 0);
-    remove(protocol->delta_name);
 
+    remove(protocol->delta_name);
+    // old pos
+
+    remove(protocol->file_name);
+    int ress = rename(protocol->patch_name, protocol->file_name);
+    remove(protocol->patch_name);
+    set_protocol_status_ok(SERVER_PATCHED, protocol);
+    protocol->instance_p->task_push = 1;
     add_self_task_in_queue(protocol->instance_p, 2, protocol->file_name, "", 0);
 #if defined(_WIN32) || defined(_WIN64)
     add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
@@ -645,11 +649,6 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 #else
     // others
 #endif
-
-    remove(protocol->file_name);
-    int ress = rename(protocol->patch_name, protocol->file_name);
-    remove(protocol->patch_name);
-    set_protocol_status_ok(SERVER_PATCHED, protocol);
     protocol->instance_p->task_push = 0;
     return 0;
 }

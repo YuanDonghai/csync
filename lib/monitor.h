@@ -34,6 +34,8 @@ typedef int DWORD;
 #define TASK_QUEUE_COUNTS 4096
 #define INSTANCE_SOCKET_TIMEOUT_SEC 60
 
+#define FILE_CHAGNED_SECS 5
+
 typedef struct
 {
     int type;
@@ -42,6 +44,7 @@ typedef struct
     char short_name[FILE_PATH_MAX_LEN];
     char rename_name[FILE_PATH_MAX_LEN];
     int status;
+    time_t timestap;
 } task_meta;
 
 struct instance_meta

@@ -158,28 +158,52 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
         }
         for (i = 0;i < TASK_QUEUE_COUNTS;i++)
         {
+
             if (instance_p->task_queues[i].status == 0)
             {
-                break;
+                continue;
             }
             if (instance_p->task_queues[i].status == 1)
             {
-                if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+                time_t cur_time;
+                time(&cur_time);
+                if (FILE_CHAGNED_SECS < difftime(cur_time, instance_p->task_queues[i].timestap))
                 {
-                    client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
-                    instance_p->need_reconnect = FALSE;
-                    client_sync_path(instance_p->con, instance_p->peer_id);
-                    //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                }
-                else
-                {
-                    //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                }
-                switch (instance_p->task_queues[i].action)
-                {
-                case 1:// create
-                    if (instance_p->task_queues[i].type == 0)//file
+                    s_log(LOG_DEBUG, "[client] client will sync file: %s", instance_p->task_queues[i].short_name);
+                    if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
                     {
+                        client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
+                        instance_p->need_reconnect = FALSE;
+                        client_sync_path(instance_p->con, instance_p->peer_id);
+                        //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                    }
+                    else
+                    {
+                        //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                    }
+                    switch (instance_p->task_queues[i].action)
+                    {
+                    case 1:// create
+                        if (instance_p->task_queues[i].type == 0)//file
+                        {
+                            if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                            {
+                                client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                            }
+                            else
+                            {
+                                client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
+                            }
+                        }
+                        if (instance_p->task_queues[i].type == 1)//dir
+                        {
+                            client_create_dir(instance_p->con, instance_p->task_queues[i].short_name);
+                        }
+                        break;
+                    case 2://delete
+                        client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
+                        break;
+                    case 3://write
                         if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
                         {
                             client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
@@ -188,34 +212,21 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                         {
                             client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
                         }
+                        break;
+                    case 5://rename
+                        client_rename_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                        break;
+                    default:
+                        break;
                     }
-                    if (instance_p->task_queues[i].type == 1)//dir
-                    {
-                        client_create_dir(instance_p->con, instance_p->task_queues[i].short_name);
-                    }
-                    break;
-                case 2://delete
-                    client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
-                    break;
-                case 3://write
-                    if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
-                    {
-                        client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                    }
-                    else
-                    {
-                        client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
-                    }
-                    break;
-                case 5://rename
-                    client_rename_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                    break;
-                default:
-                    break;
+                    instance_p->task_queues[i].status = 0;
+                    instance_p->timestap = time(NULL);
+                    instance_p->time_out_status = 1;
                 }
-                instance_p->task_queues[i].status = 0;
-                instance_p->timestap = time(NULL);
-                instance_p->time_out_status = 1;
+                else
+                {
+                    continue;
+                }
             }
         }
 
@@ -326,7 +337,7 @@ void watch_directory(const wchar_t* directory_path, struct monitor_path* monitor
         {
             s_log(LOG_ERROR, "ReadDirectoryChangesW failed: %lu\n", GetLastError());
         }
-        Sleep(1000);
+        Sleep(1);
     }
     CloseHandle(hDir);
 }
@@ -423,23 +434,45 @@ void* thread_start_sync_task(void* lpParam)
             }
             if (instance_p->task_queues[i].status == 1)
             {
-
-                if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+                time_t cur_time;
+                time(&cur_time);
+                if (FILE_CHAGNED_SECS < difftime(cur_time, instance_p->task_queues[i].timestap))
                 {
-                    client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
-                    instance_p->need_reconnect = 0;
-                    client_sync_path(instance_p->con, instance_p->peer_id);
-                    //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                }
-                else
-                {
-                    //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                }
-                switch (instance_p->task_queues[i].action)
-                {
-                case 1:// create
-                    if (instance_p->task_queues[i].type == 0)//file
+                    s_log(LOG_DEBUG, "[client] client will sync file: %s", instance_p->task_queues[i].short_name);
+                    if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
                     {
+                        client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con));
+                        instance_p->need_reconnect = 0;
+                        client_sync_path(instance_p->con, instance_p->peer_id);
+                        //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                    }
+                    else
+                    {
+                        //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                    }
+                    switch (instance_p->task_queues[i].action)
+                    {
+                    case 1:// create
+                        if (instance_p->task_queues[i].type == 0)//file
+                        {
+                            if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                            {
+                                client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                            }
+                            else
+                            {
+                                client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
+                            }
+                        }
+                        if (instance_p->task_queues[i].type == 1)//dir
+                        {
+                            client_create_dir(instance_p->con, instance_p->task_queues[i].short_name);
+                        }
+                        break;
+                    case 2://delete
+                        client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
+                        break;
+                    case 3://write
                         if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
                         {
                             client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
@@ -448,34 +481,18 @@ void* thread_start_sync_task(void* lpParam)
                         {
                             client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
                         }
+                        break;
+                    case 5://rename
+                        client_rename_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
+                        break;
+                    default:
+                        break;
                     }
-                    if (instance_p->task_queues[i].type == 1)//dir
-                    {
-                        client_create_dir(instance_p->con, instance_p->task_queues[i].short_name);
-                    }
-                    break;
-                case 2://delete
-                    client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
-                    break;
-                case 3://write
-                    if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
-                    {
-                        client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                    }
-                    else
-                    {
-                        client_create_file(instance_p->con, instance_p->task_queues[i].short_name);
-                    }
-                    break;
-                case 5://rename
-                    client_rename_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
-                    break;
-                default:
-                    break;
+                    instance_p->task_queues[i].status = 0;
+                    instance_p->timestap = time(NULL);
+                    instance_p->time_out_status = 1;
                 }
-                instance_p->task_queues[i].status = 0;
-                instance_p->timestap = time(NULL);
-                instance_p->time_out_status = 1;
+
             }
         }
 
@@ -715,103 +732,92 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
     char csname[FILE_PATH_MAX_LEN];
     format_path(fname1);
     format_path(fname2);
-    //s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
-    for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
+    s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
+    time_t cur_time;
+    time(&cur_time);
+    if (action == 5)
     {
-        if (instance_p->task_queues[i].status == 2)
+        sprintf_s(cfname, FILE_PATH_MAX_LEN, "%s", &fname1[strlen(instance_p->path) + 1]);
+        modify_os_file_name(instance_p->os_type, cfname);
+        for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
         {
-            //if (instance_p->task_queues[i].action == action && instance_p->task_queues[i].type == type && 0 == strcmp(instance_p->task_queues[i].name, fname) && 0 == strcmp(instance_p->task_queues[i].short_name, short_name))
-            if (instance_p->task_queues[i].action == action && 0 == strcmp(instance_p->task_queues[i].name, fname1))
+            if (instance_p->task_queues[i].status == 1)
             {
-                instance_p->task_queues[i].status = 0;
-                return;
+                if (0 == strcmp(cfname, instance_p->task_queues[i].short_name))
+                {
+                    // s_log(LOG_DEBUG, "add_sync_task_in_queue file %s will rename,update other task status ,action %d.", fname1, action);
+                    instance_p->task_queues[i].timestap -= FILE_CHAGNED_SECS;
+                }
             }
-        }
-    }
-
-
-    for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
-    {
-        if (instance_p->task_queues[i].status < 1)
-        {
-            instance_p->task_queues[i].action = action;
-            instance_p->task_queues[i].type = type;
-            if (action == 5)
+            else
             {
+                instance_p->task_queues[i].action = action;
+                instance_p->task_queues[i].type = type;
+                instance_p->task_queues[i].status = 1;
                 sprintf_s(instance_p->task_queues[i].name, FILE_PATH_MAX_LEN, "%s", &fname1[strlen(instance_p->path) + 1]);
                 sprintf_s(instance_p->task_queues[i].short_name, FILE_PATH_MAX_LEN, "%s", &fname2[strlen(instance_p->path) + 1]);
                 modify_os_file_name(instance_p->os_type, instance_p->task_queues[i].name);
                 modify_os_file_name(instance_p->os_type, instance_p->task_queues[i].short_name);
-            }
-            else
-            {
-                sprintf_s(instance_p->task_queues[i].name, FILE_PATH_MAX_LEN, "%s", fname1);
-                sprintf_s(instance_p->task_queues[i].short_name, FILE_PATH_MAX_LEN, "%s", &fname1[strlen(instance_p->path) + 1]);
-                modify_os_file_name(instance_p->os_type, instance_p->task_queues[i].short_name);
-            }
-            instance_p->task_queues[i].status = 1;
-            break;
-        }
-
-        /*
-        else
-        {
-            if (instance_p->task_queues[i].action == action && instance_p->task_queues[i].type == type && 0 == strcmp(instance_p->task_queues[i].name, fname) && 0 == strcmp(instance_p->task_queues[i].short_name, short_name))
-            {
-                s_log(LOG_DEBUG,"task is same,skip");
+                time(&(instance_p->task_queues[i].timestap));
+                instance_p->task_queues[i].timestap -= FILE_CHAGNED_SECS;
                 break;
             }
         }
-        */
+    }
+    else
+    {
+        for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
+        {
+            if (instance_p->task_queues[i].status == 1)
+            {
+                if (0 == strcmp(fname1, instance_p->task_queues[i].name))
+                {
+                    instance_p->task_queues[i].action = action;
+                    instance_p->task_queues[i].type = type;
+                    time(&(instance_p->task_queues[i].timestap));
+                    break;
+                }
+            }
+            else
+            {
+                instance_p->task_queues[i].action = action;
+                instance_p->task_queues[i].type = type;
+                sprintf_s(instance_p->task_queues[i].name, FILE_PATH_MAX_LEN, "%s", fname1);
+                sprintf_s(instance_p->task_queues[i].short_name, FILE_PATH_MAX_LEN, "%s", &fname1[strlen(instance_p->path) + 1]);
+                modify_os_file_name(instance_p->os_type, instance_p->task_queues[i].short_name);
+                time(&(instance_p->task_queues[i].timestap));
+                instance_p->task_queues[i].status = 1;
+                break;
+            }
+        }
     }
 }
 void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* fname, char* short_name, int type)
 {
-    //s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
+    // s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
+    _sleep_or_Sleep(200);
     char rename_f[FILE_PATH_MAX_LEN];
     if (action == 5)
     {
         sprintf_s(rename_f, FILE_PATH_MAX_LEN, "%s", &fname[strlen(instance_p->path) + 1]);
-        s_log(LOG_DEBUG, "rename %s", rename_f);
+    }
+    else
+    {
+        sprintf_s(rename_f, FILE_PATH_MAX_LEN, "%s", fname);
     }
 
     for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
     {
         if (instance_p->task_queues[i].status == 1)
         {
-            //if (instance_p->task_queues[i].action == action && instance_p->task_queues[i].type == type && 0 == strcmp(instance_p->task_queues[i].name, fname) && 0 == strcmp(instance_p->task_queues[i].short_name, short_name))
-
-            if (action == 5)
+            if (0 == strcmp(instance_p->task_queues[i].name, rename_f))
             {
-                s_log(LOG_DEBUG, "rename %s %s", rename_f, instance_p->task_queues[i].name);
-                if (instance_p->task_queues[i].action == action && 0 == strcmp(instance_p->task_queues[i].name, rename_f))
-                {
-                    instance_p->task_queues[i].status = 0;
-                    return;
-                }
+                instance_p->task_queues[i].status = 0;
+                break;
             }
-            else
-            {
-                if (instance_p->task_queues[i].action == action && 0 == strcmp(instance_p->task_queues[i].name, fname))
-                {
-                    instance_p->task_queues[i].status = 0;
-                    return;
-                }
-            }
-
         }
-    }
-
-    for (int i = 0;i < TASK_QUEUE_COUNTS;i++)
-    {
-        if (instance_p->task_queues[i].status < 1)
+        else
         {
-            instance_p->task_queues[i].action = action;
-            instance_p->task_queues[i].type = type;
-            sprintf_s(instance_p->task_queues[i].name, FILE_PATH_MAX_LEN, "%s", fname);
-            sprintf_s(instance_p->task_queues[i].short_name, FILE_PATH_MAX_LEN, "%s", short_name);
-
-            instance_p->task_queues[i].status = 2;
             break;
         }
     }
