@@ -648,6 +648,44 @@ int trans_status_on_req_send_del(char* data, unsigned long len, sync_protocol* p
 
 int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* protocol)
 {
+    if (protocol->big_cache_malloc == 0)
+    {
+        protocol->big_cache = (char*)malloc(BIG_CACHE_SIZE * sizeof(char));
+        protocol->big_cache_counts = 0;
+        protocol->big_cache_malloc = 1;
+    }
+
+    if ((protocol->big_cache_counts + len > BIG_CACHE_SIZE))
+    {
+        FILE* file = fopen(protocol->delta_name, "ab");
+        if (!file)
+        {
+            s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
+            return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
+        }
+        fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
+        protocol->big_cache_counts = 0;
+        fclose(file);
+        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+    }
+    memcpy(&protocol->big_cache[protocol->big_cache_counts], data, len);
+    protocol->big_cache_counts += len;
+    protocol->will_recv_data_len -= len;
+    if (protocol->will_recv_data_len <= 0)
+    {
+        FILE* file = fopen(protocol->delta_name, "ab");
+        if (!file)
+        {
+            s_log(LOG_DEBUG, "[server] config open file error. %s.", protocol->file_name);
+            return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
+        }
+        fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
+        protocol->big_cache_counts = 0;
+        fclose(file);
+        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+    }
+
+    /*
     if (protocol->status == SERVER_RECV_DEL)
     {
         FILE* file = fopen(protocol->delta_name, "wb");
@@ -677,6 +715,7 @@ int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* p
 
     protocol->will_recv_data_len -= len;
     //s_log(LOG_DEBUG, "[server] client send data %ld Bytes left.", protocol->will_recv_data_len);
+    */
     if (protocol->will_recv_data_len <= 0)
     {
         if (0 != check_file_with_md5(protocol->delta_name, protocol->will_recv_checksum))

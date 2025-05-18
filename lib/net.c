@@ -302,7 +302,7 @@ void* linux_server_work_thread(void* socket_desc)
         int valread = read(sock, buffer, 4096);
         if (valread <= 0)
         {
-            s_log(LOG_ERROR, "client %d closed.", sock);
+            s_log(LOG_ERROR, "client closed for instance: %s.", conn_status[con_index].instance_id);
             break;
         }
         while (1)
