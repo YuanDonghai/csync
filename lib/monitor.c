@@ -137,6 +137,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
     int i = 0;
     while (1)
     {
+        // sync time
         if (instance_p->is_time_adj == 0)
         {
             if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
@@ -150,13 +151,11 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                 closesocket(instance_p->con);
                 instance_p->is_time_adj = 1;
             }
-
         }
-        // start sync the instance all file
 
-        if (instance_p->manual_sync_status == 0)
+        // if not task and manual_sync_status==0, ready to notice both to sync all
+        if (instance_p->manual_sync_status == 0 && instance_p->task_queues[0].status <= 0)
         {
-            s_log(LOG_INFO, "starting sync instance:%s dir.", instance_p->id);
             if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
             {
                 if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
@@ -167,14 +166,38 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                 instance_p->need_reconnect = FALSE;
                 client_sync_path(instance_p->con, instance_p->peer_id);
             }
+            instance_p->manual_sync_status = client_notice_sync(instance_p->con);
+            if (instance_p->manual_sync_status == 0)
+            {
+                continue;
+            }
+            instance_p->timestap = time(NULL);
+            instance_p->time_out_status = 1;
+        }
+        // start sync all dir
+        if (instance_p->manual_sync_status == 1)
+        {
+            if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+            {
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
+                instance_p->need_reconnect = FALSE;
+                client_sync_path(instance_p->con, instance_p->peer_id);
+            }
+            time_t cur_time;
+            time(&cur_time);
+            // sync dir
+            s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
             TCHAR full_path[FILE_PATH_MAX_LEN];
             char_to_wchar(instance_p->path, full_path, FILE_PATH_MAX_LEN, CP_ACP);
-            client_sync_dir(instance_p->con, full_path, L"");
-            instance_p->manual_sync_status = 1;
-            s_log(LOG_INFO, "sync instance:%s dir over.", instance_p->id);
-            continue;
+            client_sync_dir(instance_p->con, full_path, L"", cur_time);
+            instance_p->manual_sync_status = 2;
+            instance_p->timestap = time(NULL);
+            instance_p->time_out_status = 1;
         }
-
 
         if (instance_p->task_push == 1)
         {
@@ -183,7 +206,6 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
         }
         for (i = 0;i < TASK_QUEUE_COUNTS;i++)
         {
-
             if (instance_p->task_queues[i].status == 0)
             {
                 continue;
@@ -202,7 +224,6 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                             instance_p->need_reconnect = FALSE;
                             client_sync_path(instance_p->con, instance_p->peer_id);
                         }
-
                         //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                     }
                     else
@@ -459,6 +480,7 @@ long get_file_timestap(const char* fname)
     }
 
     CloseHandle(hFile);
+    /*
     if (!FileTimeToSystemTime(&ftModify, &stUTC))
     {
         return 0;
@@ -474,6 +496,7 @@ long get_file_timestap(const char* fname)
     {
         return 0;
     }
+    */
 
     ULARGE_INTEGER uli;
     uli.LowPart = ftModify.dwLowDateTime;
@@ -481,6 +504,11 @@ long get_file_timestap(const char* fname)
     fileTime = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000ULL);
 
     return fileTime;
+}
+
+int instance_sync_dir(struct instance_meta* instance_p, LPCTSTR full_dir_path, LPCTSTR dir_path)
+{
+
 }
 
 #elif defined(__linux__)
@@ -516,6 +544,53 @@ void* thread_start_sync_task(void* lpParam)
             }
 
         }
+
+        // if not task and manual_sync_status==0, ready to notice both to sync all
+        if (instance_p->manual_sync_status == 0 && instance_p->task_queues[0].status <= 0)
+        {
+            if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+            {
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
+                instance_p->need_reconnect = 0;
+                client_sync_path(instance_p->con, instance_p->peer_id);
+
+            }
+            instance_p->manual_sync_status = client_notice_sync(instance_p->con);
+            if (instance_p->manual_sync_status == 0)
+            {
+                continue;
+            }
+            instance_p->timestap = time(NULL);
+            instance_p->time_out_status = 1;
+        }
+        // start sync all dir
+        if (instance_p->manual_sync_status == 1)
+        {
+            if (instance_p->con == INVALID_SOCKET || instance_p->need_reconnect)
+            {
+                if (0 != client_sync_connect(instance_p->peer_address, instance_p->peer_port, &(instance_p->con)))
+                {
+                    _sleep_or_Sleep(1000 * 10);
+                    continue;
+                }
+                instance_p->need_reconnect = 0;
+                client_sync_path(instance_p->con, instance_p->peer_id);
+                // start sync dir
+            }
+            time_t cur_time;
+            time(&cur_time);
+            // sync dir
+            s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
+            client_sync_dir(instance_p->con, instance_p->path, "", cur_time);
+            instance_p->manual_sync_status = 2;
+            instance_p->timestap = time(NULL);
+            instance_p->time_out_status = 1;
+        }
+        /*
         // start sync the instance all file
 
         if (instance_p->manual_sync_status == 0)
@@ -533,7 +608,7 @@ void* thread_start_sync_task(void* lpParam)
             s_log(LOG_INFO, "sync instance:%s dir over.", instance_p->id);
             continue;
         }
-
+        */
 
         if (instance_p->task_push == 1)
         {
@@ -871,7 +946,7 @@ long get_file_timestap(const char* fname)
 
     time_t last_modified = file_stat.st_mtime;
 
-    return last_modified + 3600 * 8;
+    return last_modified;
 }
 #else
 //others
@@ -883,7 +958,7 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
     char csname[FILE_PATH_MAX_LEN];
     format_path(fname1);
     format_path(fname2);
-    s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
+    //s_log(LOG_DEBUG, "add_sync_task_in_queue file %s ,action %d.", fname1, action);
     time_t cur_time;
     time(&cur_time);
     if (action == 5)

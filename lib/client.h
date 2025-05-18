@@ -21,6 +21,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <dirent.h>
 typedef int SOCKET;
 #define INVALID_SOCKET  (int)(~0)
 #define SOCKET_ERROR            (-1)
@@ -44,11 +45,11 @@ typedef int SOCKET;
 
 
 #if defined(_WIN32) || defined(_WIN64)
-int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path);
+int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time);
 #elif defined(__linux__)
 // linux
 int WSAGetLastError();
-int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path);
+int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time);
 #else
 //others
 #endif
@@ -59,7 +60,9 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket);
 int client_sync_path(SOCKET client_socket, const char* instance_id);
 int client_sync_time(SOCKET client_socket);
+int client_notice_sync(SOCKET client_socket);
 int client_sync_file(SOCKET client_socket, const char* file_name, const char* short_name);
+int client_sync_empty_file(SOCKET client_socket, const char* file_name, const char* short_name);
 int client_create_dir(SOCKET client_socket, const char* dir_name);
 int client_create_file(SOCKET client_socket, const char* file_name);
 int client_delete_file(SOCKET client_socket, const char* file_name);
@@ -84,4 +87,5 @@ long client_get_file_time(const char* fname);
 long client_update_time(long timel);
 
 void format_file_name(char* fname);
+long client_get_file_length(char* fname);
 #endif

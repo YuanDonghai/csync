@@ -2,7 +2,7 @@
 
 
 #if defined(_WIN32) || defined(_WIN64)
-int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path)
+int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time)
 {
     WIN32_FIND_DATA findFileData;
     HANDLE hFind = INVALID_HANDLE_VALUE;
@@ -32,32 +32,39 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
-            s_log(LOG_DEBUG, "[sync dir] create dir: %s.", ch_path);
+            s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", ch_path);
             client_create_dir(client_socket, ch_path);
-            client_sync_dir(client_socket, fullPath, shortPath);
+            client_sync_dir(client_socket, fullPath, shortPath, s_time);
         }
         else
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
-            memset(short_name, 0, FILE_PATH_MAX_LEN);
-            wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
-            s_log(LOG_DEBUG, "[sync dir] sync file: %s %s.", ch_path, short_name);
-            format_file_name(short_name);
-            // client_sync_file(client_socket, ch_path, short_name);
-            if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
+            if (client_get_file_time(ch_path) < s_time)
             {
-                if (0 < client_sync_empty_file(client_socket, ch_path, short_name))
-                {
-                    client_create_file(client_socket, short_name);
-                }
+                memset(short_name, 0, FILE_PATH_MAX_LEN);
+                wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
+                s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
+                format_file_name(short_name);
+                // client_sync_file(client_socket, ch_path, short_name);
 
+                if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
+                {
+                    if (0 < client_sync_empty_file(client_socket, ch_path, short_name))
+                    {
+                        client_create_file(client_socket, short_name);
+                    }
+
+                }
+                else
+                {
+                    client_sync_file(client_socket, ch_path, short_name);
+                }
             }
             else
             {
-                client_sync_file(client_socket, ch_path, short_name);
+                //s_log(LOG_DEBUG, "[sync dir] sync file: %s ,some changed.", ch_path);
             }
-
 
         }
     }
@@ -134,6 +141,7 @@ long client_get_file_time(const char* fname)
     }
 
     CloseHandle(hFile);
+    /*
     if (!FileTimeToSystemTime(&ftModify, &stUTC))
     {
         return 0;
@@ -149,6 +157,7 @@ long client_get_file_time(const char* fname)
     {
         return 0;
     }
+    */
 
     ULARGE_INTEGER uli;
     uli.LowPart = ftModify.dwLowDateTime;
@@ -188,8 +197,101 @@ int WSAGetLastError()
 {
     return -1;
 }
-int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path)
+int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time)
 {
+    DIR* dir;
+    struct dirent* entry;
+    struct stat file_stat;
+    char full_path[FILE_PATH_MAX_LEN];
+    char short_name[FILE_PATH_MAX_LEN];
+
+    if ((dir = opendir(full_dir_path)) == NULL)
+    {
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        // Skip "." and ".."
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        // Construct the full path
+        snprintf(full_path, sizeof(full_path), "%s/%s", full_dir_path, entry->d_name);
+        snprintf(short_name, sizeof(short_name), "%s/%s", dir_path, entry->d_name);
+
+        // Get file stats
+        if (lstat(full_path, &file_stat) < 0)
+        {
+            continue;
+        }
+
+        // Check if it's a directory
+        if (S_ISDIR(file_stat.st_mode))
+        {
+            s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", short_name);
+            client_create_dir(client_socket, short_name);
+            client_sync_dir(client_socket, full_path, short_name, s_time);
+        }
+        else
+        {
+
+            format_file_name(short_name);
+            if (client_get_file_time(full_path) < s_time)
+            {
+                s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
+                if (0 == file_stat.st_size)
+                {
+                    if (0 < client_sync_empty_file(client_socket, full_path, short_name))
+                    {
+                        client_create_file(client_socket, short_name);
+                    }
+                }
+                else
+                {
+                    client_sync_file(client_socket, full_path, short_name);
+                }
+            }
+            else
+            {
+                //s_log(LOG_DEBUG, "[sync dir] sync file: %s ,but changed.", full_path);
+            }
+
+        }
+
+        /*
+           s_log(LOG_DEBUG, "[sync dir] create dir: %s.", ch_path);
+            client_create_dir(client_socket, ch_path);
+            client_sync_dir(client_socket, fullPath, shortPath);
+        }
+        else
+        {
+            memset(ch_path, 0, FILE_PATH_MAX_LEN);
+            wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
+            memset(short_name, 0, FILE_PATH_MAX_LEN);
+            wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
+            s_log(LOG_DEBUG, "[sync dir] sync file: %s %s.", ch_path, short_name);
+            format_file_name(short_name);
+            // client_sync_file(client_socket, ch_path, short_name);
+            if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
+            {
+                if (0 < client_sync_empty_file(client_socket, ch_path, short_name))
+                {
+                    client_create_file(client_socket, short_name);
+                }
+
+            }
+            else
+            {
+                client_sync_file(client_socket, ch_path, short_name);
+            }
+
+        */
+    }
+
+    closedir(dir);
     return 0;
 }
 
@@ -229,7 +331,7 @@ long client_get_file_time(const char* fname)
 
     time_t last_modified = file_stat.st_mtime;
 
-    return last_modified + 8 * 3600;
+    return last_modified;
 }
 
 long client_update_time(long timel)
@@ -297,7 +399,7 @@ int client_sync_time(SOCKET client_socket)
 
     memset(ch_send, 0, SOCKET_BUF_MAX);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %ld}", TIME_SYNC);
-    s_log(LOG_DEBUG, "[client] client sync time .");
+    s_log(LOG_DEBUG, "[client] client sync time with peer.");
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed.");
@@ -327,6 +429,41 @@ int client_sync_time(SOCKET client_socket)
         return CLIENT_ERROR_REQ_NEW;
     }
     return 0;
+}
+
+int client_notice_sync(SOCKET client_socket)
+{
+    char ch_send[SOCKET_BUF_MAX];
+    char ch_recv[SOCKET_BUF_MAX];
+
+    memset(ch_send, 0, SOCKET_BUF_MAX);
+    sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %ld}", NOTICE_SYNC_ALL);
+    s_log(LOG_DEBUG, "[client] client notice peer to ready for sync dir.");
+    if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
+    {
+        s_log(LOG_ERROR, "[client] send failed.");
+        return CLIENT_ERROR_REQ_NEW;
+    }
+    memset(ch_recv, 0, SOCKET_BUF_MAX);
+    long recv_len = recv(client_socket, ch_recv, SOCKET_BUF_MAX, 0);
+    int server_time = 0;
+    if (recv_len > 0)
+    {
+        struct json_object* parsed_json;
+        parsed_json = json_tokener_parse(ch_recv);
+        struct json_object* jres;
+        if (json_object_object_get_ex(parsed_json, "result", &jres))
+        {
+            server_time = json_object_get_int(jres);
+        }
+        json_object_put(parsed_json);
+    }
+    else
+    {
+        s_log(LOG_ERROR, "[client] client_sync_time Recv failed: .");
+        return CLIENT_ERROR_REQ_NEW;
+    }
+    return server_time;
 }
 
 int client_sync_file(SOCKET client_socket, const char* file_name, const char* short_name)

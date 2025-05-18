@@ -231,6 +231,11 @@ void post_update_status(sync_protocol* protocol)
         protocol->data_len = 0;
         free(protocol->data);
         break;
+    case NOTICE_SYNC_ALL:
+        protocol->status = READY_SYNC;
+        protocol->data_len = 0;
+        free(protocol->data);
+        break;
     default:
         break;
     }
@@ -336,7 +341,11 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
 
                 memset(protocol->file_name, 0, FILE_NAME_MAX_LENGTH);
                 sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
-                s_log(LOG_INFO, "[server] client %s syncing file [%s] to local: [%s].", protocol->client_address, json_object_get_string(jvalue), protocol->file_name);
+                s_log(LOG_INFO, "[server] client %s syncing file [%s] to local: [%s].", protocol->client_address, trans_char_to_local(json_object_get_string(jvalue)), protocol->file_name);
+                if (json_object_object_get_ex(parsed_json, "time", &jvalue))
+                {
+                    protocol->file_time = json_object_get_int64(jvalue);
+                }
                 if (0 == file_exist(protocol->file_name))
                 {
                     char respon_string[RESP_DATA_MAX_LENGTH];
@@ -361,8 +370,8 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                     {
                         file_time = json_object_get_int64(jvalue);
                         local_file_time = get_file_timestap(protocol->file_name);
-                        s_log(LOG_DEBUG, "[time] %ld %ld.", file_time, local_file_time);
-                        if (local_file_time > file_time)
+                        //s_log(LOG_DEBUG, "[time] %ld %ld. %ld", file_time, local_file_time, file_time - local_file_time);
+                        if (local_file_time >= file_time)
                         {
                             sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":-1,\"checksum\":\"\"}", SERVER_ACK_SIG);
                             protocol->status = ERROR_STS;
@@ -386,12 +395,6 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                     protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
                     protocol->data_len = strlen(respon_string);
                     memcpy(protocol->data, respon_string, strlen(respon_string));
-
-
-
-
-
-
                 }
             }
             else
@@ -438,6 +441,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 protocol->instance_p->task_push = 1;
                 if (0 == touch_file(dir_name))
                 {
+                    update_file_time(dir_name, protocol->file_time);
                     set_protocol_status_ok(SERVER_ACK_FILE, protocol);
                     add_self_task_in_queue(protocol->instance_p, 1, dir_name, json_object_get_string(jvalue), 0);
                 }
@@ -505,7 +509,30 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
             }
 
             break;
-
+        case NOTICE_SYNC_ALL:
+            s_log(LOG_INFO, "peer will request sync all %s.", protocol->client_address);
+            if (protocol->instance_p->task_queues[0].status <= 0)
+            {
+                time(&protocol->instance_p->manual_sync_time);
+                char respon_string[RESP_DATA_MAX_LENGTH];
+                memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
+                sprintf_s(respon_string, RESP_DATA_MAX_LENGTH, "{\"type\": %d,\"result\": 1}", NOTICE_SYNC_ALL);
+                protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
+                protocol->data_len = strlen(respon_string);
+                memcpy(protocol->data, respon_string, strlen(respon_string));
+                protocol->instance_p->manual_sync_status = 1;
+            }
+            else
+            {
+                char respon_string[RESP_DATA_MAX_LENGTH];
+                memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
+                sprintf_s(respon_string, RESP_DATA_MAX_LENGTH, "{\"type\": %d,\"result\": 0}", NOTICE_SYNC_ALL);
+                protocol->data = (char*)malloc(sizeof(char) * strlen(respon_string));
+                protocol->data_len = strlen(respon_string);
+                memcpy(protocol->data, respon_string, strlen(respon_string));
+            }
+            protocol->status = NOTICE_SYNC_ALL;
+            break;
         default:
             return SYNC_STATUS_ERROR_FORMAT;
             break;
@@ -675,6 +702,7 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 
     remove(protocol->file_name);
     int ress = rename(protocol->patch_name, protocol->file_name);
+    update_file_time(protocol->file_name, protocol->file_time);
     remove(protocol->patch_name);
     set_protocol_status_ok(SERVER_PATCHED, protocol);
     protocol->instance_p->task_push = 1;
@@ -759,6 +787,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
             protocol->status = ERROR_STS;
             return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
         }
+        update_file_time(protocol->file_name, protocol->file_time);
         set_protocol_status_ok(SERVER_RECV_NEW_END, protocol);
     }
     return 0;
@@ -897,3 +926,53 @@ long get_file_length_md5(const char* file_name, char* buf)
     memcpy(buf, ch_out_hex, 33);
     return flen;
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+void update_file_time(const char* fname, time_t f_time)
+{
+    HANDLE hFile;
+    FILETIME ftModify;
+    ULARGE_INTEGER uli;
+    uli.QuadPart = f_time * 10000000ULL + 116444736000000000ULL;
+    ftModify.dwLowDateTime = uli.LowPart;
+    ftModify.dwHighDateTime = uli.HighPart;
+
+    wchar_t wfilename[FILE_PATH_MAX_LEN];
+    char_to_wchar(fname, wfilename, FILE_PATH_MAX_LEN, CP_ACP);
+
+    hFile = CreateFileW(wfilename, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        return;
+    }
+
+    if (!SetFileTime(hFile, NULL, NULL, &ftModify))
+    {
+        CloseHandle(hFile);
+        return;
+    }
+
+    CloseHandle(hFile);
+}
+#elif defined(__linux__)
+void update_file_time(const char* fname, time_t f_time)
+{
+    struct timespec times[2];
+
+    // 设置访问时间和修改时间（这里只修改修改时间）
+    times[0].tv_sec = 0;  // 访问时间设为当前时间（可选）
+    times[0].tv_nsec = UTIME_OMIT;
+
+    times[1].tv_sec = f_time;  // 修改时间
+    times[1].tv_nsec = 0;
+
+    // 使用 utimensat 修改时间
+    if (utimensat(AT_FDCWD, fname, times, 0) == -1) {
+        return; // 失败
+    }
+
+    return; // 成功
+}
+#else
+//others
+#endif

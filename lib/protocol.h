@@ -8,6 +8,10 @@
 #if defined(_WIN32) || defined(_WIN64)
 //#include <ws2tcpip.h>
 #elif defined(__linux__)
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
 // linux
 #else
 //others
@@ -26,6 +30,7 @@
 #define CHECK_SUM_LEN 32+1
 #define RESP_DATA_MAX_LENGTH 4096
 #define BIG_CACHE_SIZE  1024 * 1024 *4
+#define FILE_TIME_DIFF 1
 //#define INSTANCE_ID_LEN 32
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -56,6 +61,7 @@ typedef struct
     char instance_id[INSTANCE_ID_LEN];
     char instance_path[FILE_NAME_MAX_LENGTH];
     char file_name[FILE_NAME_MAX_LENGTH];
+    time_t file_time;
     char patch_name[FILE_NAME_MAX_LENGTH];
     char cache_path[FILE_NAME_MAX_LENGTH];
     char sig_name[FILE_NAME_MAX_LENGTH];
@@ -97,5 +103,6 @@ int touch_file(const char* filename);
 long get_file_length(char* fname);
 int read_file_to_buff(char* fname, char* data, long len);
 long get_file_length_md5(const char* file_name, char* buf);
+void update_file_time(const char* fname, time_t f_time);
 
 #endif

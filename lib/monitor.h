@@ -69,6 +69,7 @@ struct instance_meta
     int need_reconnect;
     struct instance_meta *next;
     int manual_sync_status;
+    time_t manual_sync_time;
 };
 
 enum monitor_thread_status
@@ -132,6 +133,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam);
 void watch_directory(const wchar_t *directory_path, struct monitor_path *monitor);
 
 void add_sync_task_in_queue_w(struct instance_meta *instance_p, int action, const char *sec_fname, const wchar_t *fname, int type);
+int instance_sync_dir(struct instance_meta* instance_p, LPCTSTR full_dir_path, LPCTSTR dir_path);
 #elif defined(__linux__)
 // linux
 void *thread_start_monitor_directory(void *lpParam);

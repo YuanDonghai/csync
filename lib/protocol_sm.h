@@ -7,6 +7,7 @@ enum sync_status
     PATH_SYNC,
     TIME_SYNC,
     READY_SYNC,
+    NOTICE_SYNC_ALL,
     CLIENT_REQ_DIR,
     SERVER_ACK_DIR,
     CLIENT_REQ_FILE,
