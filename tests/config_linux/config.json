@@ -5,8 +5,8 @@
   },
   "certs":{
     "ca": "",
-    "server_cert": "config/certs/server_cert.pem",
-    "server_key": "config/certs/server_key.pem"
+    "server_cert": "config/certs/server.crt",
+    "server_key": "config/certs/server.key"
   },
   "restapi":{
     "port":16345,
@@ -24,5 +24,6 @@
   },
   "instances":{
     "metadata":"config\/instances.json"
-  }
+  },
+  "is_time_adj": 1
 }

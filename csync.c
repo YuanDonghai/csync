@@ -15,7 +15,11 @@
 DWORD WINAPI thread_start_socket_server(LPVOID lpParam)
 {
     s_log(LOG_INFO, "starting csync data server, listen on %s:%d.", base_get_data_listen_address(), base_get_data_listen_port());
-    start_server_iocp(base_get_data_listen_address(), base_get_data_listen_port());
+    while (1)
+    {
+        start_server_iocp(base_get_data_listen_address(), base_get_data_listen_port());
+        _sleep_or_Sleep(5000);
+    }
     return 0;
 }
 
@@ -50,7 +54,12 @@ void* thread_start_socket_server(void* lpParam)
 
     }
     s_log(LOG_INFO, "starting csync data server, listen on %s:%d.", base_get_data_listen_address(), base_get_data_listen_port());
-    start_server_linux(base_get_data_listen_address(), base_get_data_listen_port());
+    while (1)
+    {
+        start_server_linux(base_get_data_listen_address(), base_get_data_listen_port());
+        _sleep_or_Sleep(5000);
+    }
+
     return 0;
 }
 

@@ -193,7 +193,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
             s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
             TCHAR full_path[FILE_PATH_MAX_LEN];
             char_to_wchar(instance_p->path, full_path, FILE_PATH_MAX_LEN, CP_ACP);
-            client_sync_dir(instance_p->con, full_path, L"", cur_time);
+            client_sync_dir(instance_p->con, full_path, L"", cur_time, instance_p->os_type);
             instance_p->manual_sync_status = 2;
             instance_p->timestap = time(NULL);
             instance_p->time_out_status = 1;
@@ -585,7 +585,7 @@ void* thread_start_sync_task(void* lpParam)
             time(&cur_time);
             // sync dir
             s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
-            client_sync_dir(instance_p->con, instance_p->path, "", cur_time);
+            client_sync_dir(instance_p->con, instance_p->path, "", cur_time, instance_p->os_type);
             instance_p->manual_sync_status = 2;
             instance_p->timestap = time(NULL);
             instance_p->time_out_status = 1;

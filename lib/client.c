@@ -2,7 +2,7 @@
 
 
 #if defined(_WIN32) || defined(_WIN64)
-int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time)
+int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time, int os_type)
 {
     WIN32_FIND_DATA findFileData;
     HANDLE hFind = INVALID_HANDLE_VALUE;
@@ -33,8 +33,10 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", ch_path);
+            format_file_name(ch_path);
+            client_modify_os_file_name(os_type, ch_path);
             client_create_dir(client_socket, ch_path);
-            client_sync_dir(client_socket, fullPath, shortPath, s_time);
+            client_sync_dir(client_socket, fullPath, shortPath, s_time, os_type);
         }
         else
         {
@@ -46,6 +48,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
                 wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
                 s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
                 format_file_name(short_name);
+                client_modify_os_file_name(os_type, short_name);
                 // client_sync_file(client_socket, ch_path, short_name);
 
                 if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
@@ -54,7 +57,6 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
                     {
                         client_create_file(client_socket, short_name);
                     }
-
                 }
                 else
                 {
@@ -79,7 +81,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
 
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket)
 {
-    /*
+
     WSADATA wsaData;
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -87,7 +89,7 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
         s_log(LOG_ERROR, "[client] WSAStartup failed: %d.", WSAGetLastError());
         return CLIENT_ERROR_INITIAL_SOCKET;
     }
-    */
+
     s_log(LOG_INFO, "connect %s %d", server_address, client_socket);
     struct sockaddr_in serverAddr;
     *client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -197,7 +199,7 @@ int WSAGetLastError()
 {
     return -1;
 }
-int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time)
+int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time, int os_type)
 {
     DIR* dir;
     struct dirent* entry;
@@ -232,13 +234,17 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
         if (S_ISDIR(file_stat.st_mode))
         {
             s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", short_name);
+            format_file_name(short_name);
+            client_modify_os_file_name(os_type, short_name);
             client_create_dir(client_socket, short_name);
-            client_sync_dir(client_socket, full_path, short_name, s_time);
+            client_sync_dir(client_socket, full_path, short_name, s_time, os_type);
         }
         else
         {
 
             format_file_name(short_name);
+            format_file_name(short_name);
+            client_modify_os_file_name(os_type, short_name);
             if (client_get_file_time(full_path) < s_time)
             {
                 s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
@@ -1224,6 +1230,18 @@ void format_file_name(char* fname)
 
 
 
+}
+
+void client_modify_os_file_name(int os_type, char* fname)
+{
+    char ch[2] = "\\/";
+    for (int i = 0;i < strlen(fname);i++)
+    {
+        if (fname[i] == ch[(os_type + 1) % 2])
+        {
+            fname[i] = ch[os_type % 2];
+        }
+    }
 }
 
 long client_get_file_length(char* fname)

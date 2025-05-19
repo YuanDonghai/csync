@@ -1,12 +1,12 @@
 {
   "node":{
-    "name":"yuandonghaibj00",
-    "id":"4F0E6814-28D4-416F-B741-94402C359D0B"
+    "name": "windows",
+    "id": "4F0E6814-28D4-416F-B741-94402C359D0B"
   },
   "certs":{
-    "ca":"",
-    "server_cert":"config\\certs\\server.crt",
-    "server_key":"config\\certs\\server.key"
+    "ca": "",
+    "server_cert": "config\\certs\\server.crt",
+    "server_key": "config\\certs\\server.key"
   },
   "restapi":{
     "port":16345,
@@ -17,12 +17,13 @@
     "listen_address":"0.0.0.0"
   },
   "users":{
-    "metadata":"config\\users.json"
+    "metadata": "config\\users.json"
   },
   "neighbors":{
-    "metadata":"config\\neighbors.json"
+    "metadata": "config\\neighbors.json"
   },
   "instances":{
-    "metadata":"config\\instances.json"
-  }
+    "metadata": "config\\instances.json"
+  },
+  "is_time_adj": 1
 }

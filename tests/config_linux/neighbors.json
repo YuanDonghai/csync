@@ -5,6 +5,7 @@
     "address": "10.42.0.59",
     "api_url": "https:\/\/10.42.0.59:16345",
     "sync_port": 26345,
-    "os_type": 0
+    "os_type": 0,
+    "status": "online"
   }
 ]

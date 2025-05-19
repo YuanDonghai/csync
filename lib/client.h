@@ -45,11 +45,11 @@ typedef int SOCKET;
 
 
 #if defined(_WIN32) || defined(_WIN64)
-int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time);
+int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time, int os_type);
 #elif defined(__linux__)
 // linux
 int WSAGetLastError();
-int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time);
+int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char* dir_path, time_t s_time, int os_type);
 #else
 //others
 #endif
@@ -87,5 +87,6 @@ long client_get_file_time(const char* fname);
 long client_update_time(long timel);
 
 void format_file_name(char* fname);
+void client_modify_os_file_name(int os_type, char* fname);
 long client_get_file_length(char* fname);
 #endif

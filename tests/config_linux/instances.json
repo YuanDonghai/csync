@@ -5,6 +5,12 @@
             "name": "csync0",
             "path": "/home/csync0",
             "type": 2
+        },
+        {
+            "id": "EE386E60-9B14-4390-8555-F31F05901A42",
+            "name": "csync0",
+            "path": "/home/csync1",
+            "type": 2
         }
     ],
     "instances": [
@@ -14,7 +20,17 @@
             "name": "csync0_instance",
             "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
             "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B34",
-            "type": 2
+            "type": 2,
+            "status": "online"
+        },
+        {
+            "id": "EE386E60-9B14-4390-8555-F31F05901145",
+            "wss_id": "EE386E60-9B14-4390-8555-F31F05901A42",
+            "name": "csync1_instance",
+            "peer_node": "4F0E6814-28D4-416F-B741-94402C359D0B",
+            "peer_iid": "EE386E60-9B14-4390-8555-F31F05901B35",
+            "type": 2,
+            "status": "online"
         }
     ]
 }
