@@ -388,7 +388,7 @@ long malloc_connection_status(int socket)
     conn_status[index].big_cache_counts = 0;
     conn_status[index].big_cache_malloc = 0;
     get_peer_address(socket, conn_status[index].client_address, &(conn_status[index].client_port));
-    s_log(LOG_INFO, "client %s:%d connected.", conn_status[index].client_address, conn_status[index].client_port);
+    s_log(LOG_DEBUG, "[server] client %s:%d connected.", conn_status[index].client_address, conn_status[index].client_port);
     memset(conn_status[index].sig_name, 0, FILE_NAME_MAX_LENGTH);
     sprintf_s(conn_status[index].sig_name, FILE_NAME_MAX_LENGTH, "%s%s%d", conn_status[index].cache_path, "sig", socket);
     memset(conn_status[index].delta_name, 0, FILE_NAME_MAX_LENGTH);

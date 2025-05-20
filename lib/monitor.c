@@ -163,7 +163,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                     _sleep_or_Sleep(1000 * 10);
                     continue;
                 }
-                instance_p->need_reconnect = FALSE;
+                //instance_p->need_reconnect = FALSE;
                 client_sync_path(instance_p->con, instance_p->peer_id);
             }
             instance_p->manual_sync_status = client_notice_sync(instance_p->con);
@@ -171,8 +171,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
             {
                 continue;
             }
-            instance_p->timestap = time(NULL);
-            instance_p->time_out_status = 1;
+            closesocket(instance_p->con);
         }
         // start sync all dir
         if (instance_p->manual_sync_status == 1)
@@ -184,19 +183,18 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                     _sleep_or_Sleep(1000 * 10);
                     continue;
                 }
-                instance_p->need_reconnect = FALSE;
+                //instance_p->need_reconnect = FALSE;
                 client_sync_path(instance_p->con, instance_p->peer_id);
             }
             time_t cur_time;
             time(&cur_time);
             // sync dir
-            s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
+            s_log(LOG_INFO, "[client] starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
             TCHAR full_path[FILE_PATH_MAX_LEN];
             char_to_wchar(instance_p->path, full_path, FILE_PATH_MAX_LEN, CP_ACP);
             client_sync_dir(instance_p->con, full_path, L"", cur_time, instance_p->os_type);
             instance_p->manual_sync_status = 2;
-            instance_p->timestap = time(NULL);
-            instance_p->time_out_status = 1;
+            closesocket(instance_p->con);
         }
 
         if (instance_p->task_push == 1)
@@ -285,7 +283,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
             double difference = difftime(cur_time, instance_p->timestap);
             if (difference > INSTANCE_SOCKET_TIMEOUT_SEC)
             {
-                s_log(LOG_INFO, "connection close for instance: %s", instance_p->id);
+                s_log(LOG_INFO, "[client] connection close for instance: %s", instance_p->id);
                 closesocket(instance_p->con);
                 instance_p->time_out_status = 0;
                 instance_p->need_reconnect = 1;
@@ -555,7 +553,7 @@ void* thread_start_sync_task(void* lpParam)
                     _sleep_or_Sleep(1000 * 10);
                     continue;
                 }
-                instance_p->need_reconnect = 0;
+                //instance_p->need_reconnect = 0;
                 client_sync_path(instance_p->con, instance_p->peer_id);
 
             }
@@ -564,8 +562,7 @@ void* thread_start_sync_task(void* lpParam)
             {
                 continue;
             }
-            instance_p->timestap = time(NULL);
-            instance_p->time_out_status = 1;
+            close(instance_p->con);
         }
         // start sync all dir
         if (instance_p->manual_sync_status == 1)
@@ -577,18 +574,17 @@ void* thread_start_sync_task(void* lpParam)
                     _sleep_or_Sleep(1000 * 10);
                     continue;
                 }
-                instance_p->need_reconnect = 0;
+                // instance_p->need_reconnect = 0;
                 client_sync_path(instance_p->con, instance_p->peer_id);
                 // start sync dir
             }
             time_t cur_time;
             time(&cur_time);
             // sync dir
-            s_log(LOG_INFO, "starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
+            s_log(LOG_INFO, "[client] starting sync instance %s all dir: %s, time:%ld.", instance_p->id, instance_p->path, cur_time);
             client_sync_dir(instance_p->con, instance_p->path, "", cur_time, instance_p->os_type);
             instance_p->manual_sync_status = 2;
-            instance_p->timestap = time(NULL);
-            instance_p->time_out_status = 1;
+            close(instance_p->con);
         }
         /*
         // start sync the instance all file
@@ -691,7 +687,7 @@ void* thread_start_sync_task(void* lpParam)
             double difference = difftime(cur_time, instance_p->timestap);
             if (difference > INSTANCE_SOCKET_TIMEOUT_SEC)
             {
-                s_log(LOG_INFO, "connection close for instance: %s", instance_p->id);
+                s_log(LOG_INFO, "[client] connection close for instance: %s", instance_p->id);
                 close(instance_p->con);
                 instance_p->time_out_status = 0;
                 instance_p->need_reconnect = 1;
@@ -704,7 +700,6 @@ void* thread_start_sync_task(void* lpParam)
 }
 void add_watch_recursive(int fd, const char* path, struct inotify_wd* inotify_wd_p)
 {
-    s_log(LOG_DEBUG, "add_watch_recursive %s", path);
     DIR* dir;
     struct dirent* entry;
     char full_path[PATH_MAX];
@@ -1343,7 +1338,6 @@ struct instance_meta* search_instance_p(const char* instance_id)
         struct instance_meta* it_i_p = it_p->instance_list;
         while (it_i_p)
         {
-            s_log(LOG_DEBUG, "[%s] [%s]", it_i_p->id, instance_id);
             if (0 == strcmp(it_i_p->id, instance_id))
             {
                 return it_i_p;

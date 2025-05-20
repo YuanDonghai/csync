@@ -32,9 +32,9 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
-            s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", ch_path);
             format_file_name(ch_path);
-            client_modify_os_file_name(os_type, ch_path);
+            s_log(LOG_DEBUG, "[client] sync directory: %s.", ch_path);
+            //client_modify_os_file_name(os_type, ch_path);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath, s_time, os_type);
         }
@@ -46,17 +46,19 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             {
                 memset(short_name, 0, FILE_PATH_MAX_LEN);
                 wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
-                s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
                 format_file_name(short_name);
                 client_modify_os_file_name(os_type, short_name);
                 // client_sync_file(client_socket, ch_path, short_name);
 
                 if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
                 {
+                    client_sync_empty_file(client_socket, ch_path, short_name);
+                    /*
                     if (0 < client_sync_empty_file(client_socket, ch_path, short_name))
                     {
                         client_create_file(client_socket, short_name);
                     }
+                    */
                 }
                 else
                 {
@@ -65,7 +67,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             }
             else
             {
-                //s_log(LOG_DEBUG, "[sync dir] sync file: %s ,some changed.", ch_path);
+                //s_log(LOG_DEBUG, "[client] sync file: %s ,some changed.", ch_path);
             }
 
         }
@@ -90,7 +92,7 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
         return CLIENT_ERROR_INITIAL_SOCKET;
     }
 
-    s_log(LOG_INFO, "connect %s %d", server_address, client_socket);
+    s_log(LOG_DEBUG, "[client] connecting server:%s %d", server_address, client_socket);
     struct sockaddr_in serverAddr;
     *client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (*client_socket == INVALID_SOCKET)
@@ -112,7 +114,7 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     }
     if (connect(*client_socket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
     {
-        s_log(LOG_ERROR, "[client] Connection failed: %d.", WSAGetLastError());
+        //s_log(LOG_ERROR, "[client] Connection failed: %d.", WSAGetLastError());
         closesocket(*client_socket);
         WSACleanup();
         return CLIENT_ERROR_INITIAL_SOCKET;
@@ -233,8 +235,8 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
         // Check if it's a directory
         if (S_ISDIR(file_stat.st_mode))
         {
-            s_log(LOG_DEBUG, "[sync dir] sync dir: %s.", short_name);
             format_file_name(short_name);
+            s_log(LOG_DEBUG, "[client] sync directory: %s.", short_name);
             client_modify_os_file_name(os_type, short_name);
             client_create_dir(client_socket, short_name);
             client_sync_dir(client_socket, full_path, short_name, s_time, os_type);
@@ -247,7 +249,6 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
             client_modify_os_file_name(os_type, short_name);
             if (client_get_file_time(full_path) < s_time)
             {
-                s_log(LOG_DEBUG, "[sync dir] sync file: %s.", short_name);
                 if (0 == file_stat.st_size)
                 {
                     if (0 < client_sync_empty_file(client_socket, full_path, short_name))
@@ -262,13 +263,13 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
             }
             else
             {
-                //s_log(LOG_DEBUG, "[sync dir] sync file: %s ,but changed.", full_path);
+                //s_log(LOG_DEBUG, "[client] sync file: %s ,but changed.", full_path);
             }
 
         }
 
         /*
-           s_log(LOG_DEBUG, "[sync dir] create dir: %s.", ch_path);
+           s_log(LOG_DEBUG, "[client] create dir: %s.", ch_path);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath);
         }
@@ -278,7 +279,7 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
             wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             memset(short_name, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
-            s_log(LOG_DEBUG, "[sync dir] sync file: %s %s.", ch_path, short_name);
+            s_log(LOG_DEBUG, "[client] sync file: %s %s.", ch_path, short_name);
             format_file_name(short_name);
             // client_sync_file(client_socket, ch_path, short_name);
             if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
@@ -383,7 +384,7 @@ int client_sync_path(SOCKET client_socket, const char* instance_id)
         {
             if (0 != strcmp(json_object_get_string(jres), "ok"))
             {
-                s_log(LOG_ERROR, "[client] client_sync_path error");
+                s_log(LOG_ERROR, "[client] client set sync path error,instance %s.", instance_id);
                 json_object_put(parsed_json);
                 return CLIENT_ERROR_REQ_NEW;
             }
@@ -492,7 +493,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     s_log(LOG_DEBUG, "[client] sync file %s.", short_name);
     if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        s_log(LOG_ERROR, "[client] client request signature error, [%s]", short_name);
         return CLIENT_ERROR_REQ_SIG;
     }
     if (ack_sig_len <= 0)
@@ -568,10 +569,10 @@ int client_sync_empty_file(SOCKET client_socket, const char* file_name, const ch
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(short_name, short_name_utf8);
 
-    s_log(LOG_DEBUG, "[client] sync file %s.", short_name);
-    if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
+    s_log(LOG_DEBUG, "[client] sync empty file %s.", short_name);
+    if (0 != client_check_empty_file(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        s_log(LOG_ERROR, "[client] client sync empty file erro, [%s].", short_name);
         return CLIENT_ERROR_REQ_SIG;
     }
     return ack_sig_len;
@@ -580,10 +581,11 @@ int client_sync_empty_file(SOCKET client_socket, const char* file_name, const ch
 int client_create_dir(SOCKET client_socket, const char* dir_name)
 {
     char short_name_utf8[FILE_PATH_MAX_LEN];
+    s_log(LOG_ERROR, "[client] client create directory, [%s].", dir_name);
     os_char_to_utf8(dir_name, short_name_utf8);
     if (0 != client_req_dir(client_socket, short_name_utf8))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        //s_log(LOG_ERROR, "[client] client create directory error, [%s].", dir_name);
         return CLIENT_ERROR_REQ_SIG;
     }
 
@@ -593,9 +595,10 @@ int client_create_file(SOCKET client_socket, const char* file_name)
 {
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(file_name, short_name_utf8);
+    s_log(LOG_ERROR, "[client] client create file error, [%s].", file_name);
     if (0 != client_req_file(client_socket, short_name_utf8))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        s_log(LOG_ERROR, "[client] client create file error, [%s].", file_name);
         return CLIENT_ERROR_REQ_SIG;
     }
 
@@ -607,7 +610,7 @@ int client_delete_file(SOCKET client_socket, const char* file_name)
     os_char_to_utf8(file_name, short_name_utf8);
     if (0 != client_del_file(client_socket, short_name_utf8))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        s_log(LOG_ERROR, "[client] client delete file error, [%s].", file_name);
         return CLIENT_ERROR_REQ_SIG;
     }
 
@@ -622,7 +625,7 @@ int client_rename_file(SOCKET client_socket, const char* file_name1, const char*
     os_char_to_utf8(file_name2, short_name2_utf8);
     if (0 != client_rename_file_s(client_socket, short_name1_utf8, short_name2_utf8))
     {
-        s_log(LOG_ERROR, "[client] client requre signature error.");
+        s_log(LOG_ERROR, "[client] client rename file error, [%s] to [%s].", file_name1, file_name2);
         return CLIENT_ERROR_REQ_SIG;
     }
 
@@ -715,6 +718,59 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
     return 0;
 }
 
+int client_check_empty_file(SOCKET client_socket, const char* file_name, const char* short_name, long* ack_sig_len, char* check_sum)
+{
+    char ch_send[SOCKET_BUF_MAX];
+    char ch_recv[SOCKET_BUF_MAX];
+    struct json_object* parsed_json;
+
+    struct json_object* node_new = json_object_new_object();
+    json_object_object_add(node_new, "type", json_object_new_int(CLIENT_CHECK_FILE_E));
+    json_object_object_add(node_new, "file", json_object_new_string(short_name));
+    json_object_object_add(node_new, "time", json_object_new_int64(client_get_file_time(file_name)));
+
+    memset(ch_send, 0, SOCKET_BUF_MAX);
+    //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"dir\" : \"%s\"}", CLIENT_REQ_DIR, dir_name);
+    sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
+    json_object_put(node_new);
+
+    //memset(ch_send, 0, SOCKET_BUF_MAX);
+   // sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"file\" : \"%s\"}", CLIENT_REQ_SIG, file_name);
+    s_log(LOG_DEBUG, "[client] client check file exist.");
+    if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
+    {
+        s_log(LOG_ERROR, "[client] send failed.");
+        return CLIENT_ERROR_REQ_SIG;
+    }
+    memset(ch_recv, 0, SOCKET_BUF_MAX);
+    int recv_len = recv(client_socket, ch_recv, SOCKET_BUF_MAX, 0);
+    int res_int = 0;
+    if (recv_len > 0)
+    {
+        struct json_object* parsed_json;
+        parsed_json = json_tokener_parse(ch_recv);
+        struct json_object* jres;
+        if (json_object_object_get_ex(parsed_json, "result", &jres))
+        {
+            if (0 != strcmp(json_object_get_string(jres), "ok"))
+            {
+                // s_log(LOG_ERROR, "[client] client request create directory error.");
+                json_object_put(parsed_json);
+                return CLIENT_ERROR_SEND_NEW;
+            }
+        }
+        json_object_put(parsed_json);
+    }
+    else
+    {
+        s_log(LOG_ERROR, "[client] client recv data error.");
+        return CLIENT_ERROR_REQ_SIG;
+    }
+
+
+    return 0;
+}
+
 int client_req_dir(SOCKET client_socket, const char* dir_name)
 {
     char ch_send[SOCKET_BUF_MAX];
@@ -729,7 +785,7 @@ int client_req_dir(SOCKET client_socket, const char* dir_name)
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
     json_object_put(node_new);
 
-    s_log(LOG_DEBUG, "[client] client request dir. : %s.", ch_send);
+    //s_log(LOG_DEBUG, "[client] client request create directory.");
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed: %d.", WSAGetLastError());
@@ -746,7 +802,7 @@ int client_req_dir(SOCKET client_socket, const char* dir_name)
         {
             if (0 != strcmp(json_object_get_string(jres), "ok"))
             {
-                s_log(LOG_ERROR, "[client] client_req_dir data format error");
+                // s_log(LOG_ERROR, "[client] client request create directory error.");
                 json_object_put(parsed_json);
                 return CLIENT_ERROR_SEND_NEW;
             }

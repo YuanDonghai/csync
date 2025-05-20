@@ -70,6 +70,7 @@ int client_rename_file(SOCKET client_socket, const char* file_name1, const char*
 void client_sync_close(SOCKET client_socket);
 
 int client_req_sig(SOCKET client_socket, const char* file_name, const char* short_name, long* ack_sig_len, char* check_sum);
+int client_check_empty_file(SOCKET client_socket, const char* file_name, const char* short_name, long* ack_sig_len, char* check_sum);
 int client_req_dir(SOCKET client_socket, const char* dir_name);
 int client_req_file(SOCKET client_socket, const char* dir_name);
 int client_del_file(SOCKET client_socket, const char* dir_name);

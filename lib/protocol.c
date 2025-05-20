@@ -105,6 +105,10 @@ int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
 {
     int res = 0;
     int stable_status = 1;
+    if (len < 4096)
+    {
+        data[len] = 0;
+    }
     switch (protocol->status)
     {
     case READY_BASE:
@@ -236,6 +240,11 @@ void post_update_status(sync_protocol* protocol)
         protocol->data_len = 0;
         free(protocol->data);
         break;
+    case CLIENT_CHECK_FILE_E:
+        protocol->status = READY_SYNC;
+        protocol->data_len = 0;
+        free(protocol->data);
+        break;
     default:
         break;
     }
@@ -293,7 +302,7 @@ int trans_status_on_path(char* data, unsigned long len, sync_protocol* protocol)
             {
                 if (0 == update_instance(json_object_get_string(jvalue), protocol))
                 {
-                    s_log(LOG_INFO, "set sync intance, id=%s path=%s.", protocol->instance_id, protocol->instance_path);
+                    s_log(LOG_INFO, "[server] set sync intance, id=%s path=%s.", protocol->instance_id, protocol->instance_path);
                     set_protocol_status_ok(PATH_SYNC, protocol);
                 }
                 else
@@ -335,6 +344,61 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
         struct json_object* jvalue;
         switch (json_object_get_int(jtype))
         {
+        case CLIENT_CHECK_FILE_E:
+            if (json_object_object_get_ex(parsed_json, "file", &jvalue))
+            {
+                memset(protocol->file_name, 0, FILE_NAME_MAX_LENGTH);
+                sprintf_s(protocol->file_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
+                if (json_object_object_get_ex(parsed_json, "time", &jvalue))
+                {
+                    protocol->file_time = json_object_get_int64(jvalue);
+                }
+                if (0 == file_exist(protocol->file_name))
+                {
+                    protocol->instance_p->task_push = 1;
+                    if (0 == touch_file(protocol->file_name))
+                    {
+                        update_file_time(protocol->file_name, protocol->file_time);
+                        set_protocol_status_ok(CLIENT_CHECK_FILE_E, protocol);
+                        add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
+                    }
+                    else
+                    {
+                        return SYNC_STATUS_ERROR_FORMAT;
+                    }
+                    protocol->instance_p->task_push = 0;
+                }
+                else
+                {
+                    long local_file_time = get_file_timestap(protocol->file_name);
+                    //s_log(LOG_DEBUG, "[time] %ld %ld. %ld", file_time, local_file_time, file_time - local_file_time);
+                    if (local_file_time < protocol->file_time)
+                    {
+                        protocol->instance_p->task_push = 1;
+                        if (0 == touch_file(protocol->file_name))
+                        {
+                            update_file_time(protocol->file_name, protocol->file_time);
+                            set_protocol_status_ok(CLIENT_CHECK_FILE_E, protocol);
+                            add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
+                        }
+                        else
+                        {
+                            return SYNC_STATUS_ERROR_FORMAT;
+                        }
+                        protocol->instance_p->task_push = 0;
+                    }
+                    else
+                    {
+                        set_protocol_status_ok(CLIENT_CHECK_FILE_E, protocol);
+                    }
+
+                }
+            }
+            else
+            {
+                return SYNC_STATUS_ERROR_FORMAT;
+            }
+            break;
         case CLIENT_REQ_SIG:
             if (json_object_object_get_ex(parsed_json, "file", &jvalue))
             {
@@ -375,7 +439,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                         {
                             sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":-1,\"checksum\":\"\"}", SERVER_ACK_SIG);
                             protocol->status = ERROR_STS;
-                            s_log(LOG_DEBUG, "[server] file %s signature length: %ld.", protocol->file_name, -1);
+                            s_log(LOG_DEBUG, "[server] file %s is newer than client", protocol->file_name);
                         }
                         else
                         {
@@ -510,7 +574,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
 
             break;
         case NOTICE_SYNC_ALL:
-            s_log(LOG_INFO, "peer will request sync all %s.", protocol->client_address);
+            s_log(LOG_INFO, "[server] peer %s will sync all.", protocol->client_address);
             if (protocol->instance_p->task_queues[0].status <= 0)
             {
                 time(&protocol->instance_p->manual_sync_time);
@@ -839,7 +903,7 @@ int update_instance(const char* instance_id, sync_protocol* protocol)
     memcpy(protocol->instance_id, instance_id, strlen(instance_id));
 
     get_instance_path(protocol->instance_id, ch_instance_path);
-    s_log(LOG_DEBUG, "instance id %s, path=%s", protocol->instance_id, ch_instance_path);
+    s_log(LOG_DEBUG, "[server] instance id %s, path=%s", protocol->instance_id, ch_instance_path);
 #if defined(_WIN32) || defined(_WIN64)
     if (0 == _access(ch_instance_path, 0))
 #elif defined(__linux__)
