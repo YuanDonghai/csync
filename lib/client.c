@@ -577,7 +577,7 @@ int client_sync_empty_file(SOCKET client_socket, const char* file_name, const ch
 int client_create_dir(SOCKET client_socket, const char* dir_name)
 {
     char short_name_utf8[FILE_PATH_MAX_LEN];
-    s_log(LOG_ERROR, "[client] client create directory, [%s].", dir_name);
+    s_log(LOG_DEBUG, "[client] client create directory, [%s].", dir_name);
     os_char_to_utf8(dir_name, short_name_utf8);
     if (0 != client_req_dir(client_socket, short_name_utf8))
     {
@@ -591,7 +591,7 @@ int client_create_file(SOCKET client_socket, const char* file_name)
 {
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(file_name, short_name_utf8);
-    s_log(LOG_ERROR, "[client] client create file error, [%s].", file_name);
+    s_log(LOG_DEBUG, "[client] client create file , [%s].", file_name);
     if (0 != client_req_file(client_socket, short_name_utf8))
     {
         s_log(LOG_ERROR, "[client] client create file error, [%s].", file_name);
@@ -604,6 +604,7 @@ int client_delete_file(SOCKET client_socket, const char* file_name)
 {
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(file_name, short_name_utf8);
+    s_log(LOG_DEBUG, "[client] client delete file , [%s].", file_name);
     if (0 != client_del_file(client_socket, short_name_utf8))
     {
         s_log(LOG_ERROR, "[client] client delete file error, [%s].", file_name);
@@ -619,6 +620,7 @@ int client_rename_file(SOCKET client_socket, const char* file_name1, const char*
     char short_name2_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(file_name1, short_name1_utf8);
     os_char_to_utf8(file_name2, short_name2_utf8);
+    s_log(LOG_ERROR, "[client] client rename file , [%s] to [%s].", file_name1, file_name2);
     if (0 != client_rename_file_s(client_socket, short_name1_utf8, short_name2_utf8))
     {
         s_log(LOG_ERROR, "[client] client rename file error, [%s] to [%s].", file_name1, file_name2);
@@ -662,7 +664,7 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
 
     //memset(ch_send, 0, SOCKET_BUF_MAX);
    // sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"file\" : \"%s\"}", CLIENT_REQ_SIG, file_name);
-    s_log(LOG_DEBUG, "[client] client request signature [%s].", short_name);
+    //s_log(LOG_DEBUG, "[client] client request signature [%s].", short_name);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed.");
@@ -827,8 +829,6 @@ int client_req_file(SOCKET client_socket, const char* dir_name)
     //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"dir\" : \"%s\"}", CLIENT_REQ_DIR, dir_name);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
     json_object_put(node_new);
-
-    s_log(LOG_DEBUG, "[client] client request dir. : %s.", ch_send);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed: %d.", WSAGetLastError());
@@ -845,7 +845,7 @@ int client_req_file(SOCKET client_socket, const char* dir_name)
         {
             if (0 != strcmp(json_object_get_string(jres), "ok"))
             {
-                s_log(LOG_ERROR, "[client] client_req_file data format error");
+                s_log(LOG_ERROR, "[client] client create file data format error.");
                 json_object_put(parsed_json);
                 return CLIENT_ERROR_SEND_NEW;
             }
@@ -875,7 +875,6 @@ int client_del_file(SOCKET client_socket, const char* file_name)
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
     json_object_put(node_new);
 
-    s_log(LOG_DEBUG, "[client] client delete dir or file. %s.", ch_send);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed: %d.", WSAGetLastError());
@@ -924,7 +923,7 @@ int client_rename_file_s(SOCKET client_socket, const char* filename1, const char
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
     json_object_put(node_new);
 
-    s_log(LOG_DEBUG, "[client] client request dir. : %s.", ch_send);
+    //s_log(LOG_DEBUG, "[client] client request dir. : %s.", ch_send);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed: %d.", WSAGetLastError());

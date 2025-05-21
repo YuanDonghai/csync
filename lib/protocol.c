@@ -82,7 +82,15 @@ int remove_dir(const char* dirname)
 {
     wchar_t w_dirname[FILE_PATH_MAX_LEN];
     char_to_wchar(dirname, w_dirname, FILE_PATH_MAX_LEN, CP_ACP);
-    return delete_directory(w_dirname);
+    if (0 == check_path_type(w_dirname))
+    {
+        return !DeleteFile(w_dirname);
+    }
+    else
+    {
+        return delete_directory(w_dirname);
+    }
+
 }
 #elif defined(__linux__)
 int create_dir(const char* dirname)
@@ -554,7 +562,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 char dir_name[FILE_NAME_MAX_LENGTH];
                 memset(dir_name, 0, FILE_NAME_MAX_LENGTH);
                 sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
-                s_log(LOG_INFO, "client %s delete file %s.", protocol->client_address, dir_name);
+                s_log(LOG_INFO, "[server] client %s delete file %s.", protocol->client_address, dir_name);
                 protocol->instance_p->task_push = 1;
                 if (0 == remove_dir(dir_name))
                 {
@@ -653,7 +661,6 @@ int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protoc
             protocol->instance_p->task_push = 1;
             add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
             protocol->instance_p->task_push = 0;
-            s_log(LOG_DEBUG, "[server] client send file.file length %d .", protocol->will_recv_data_len);
             break;
         default:
             return SYNC_STATUS_ERROR_FORMAT;

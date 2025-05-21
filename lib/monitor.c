@@ -196,12 +196,13 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
             instance_p->manual_sync_status = 2;
             closesocket(instance_p->con);
         }
-
+        /*
         if (instance_p->task_push == 1)
         {
             _sleep_or_Sleep(100);
             continue;
         }
+        */
         for (i = 0;i < TASK_QUEUE_COUNTS;i++)
         {
             if (instance_p->task_queues[i].status == 0)
@@ -228,6 +229,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                     {
                         //client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                     }
+
                     switch (instance_p->task_queues[i].action)
                     {
                     case 1:// create
@@ -411,7 +413,7 @@ void add_sync_task_in_queue_w(struct instance_meta* instance_p, int action, cons
     }
 }
 
-int check_path_type(const char* path)
+int check_path_type(wchar_t* path)
 {
     DWORD attributes = GetFileAttributes(path);
     if (attributes == INVALID_FILE_ATTRIBUTES)
@@ -605,12 +607,13 @@ void* thread_start_sync_task(void* lpParam)
             continue;
         }
         */
-
+        /*
         if (instance_p->task_push == 1)
         {
             _sleep_or_Sleep(100);
             continue;
         }
+        */
         for (i = 0;i < TASK_QUEUE_COUNTS;i++)
         {
             if (instance_p->task_queues[i].status == 0)
