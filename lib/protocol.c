@@ -730,7 +730,7 @@ int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* p
         fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
         protocol->big_cache_counts = 0;
         fclose(file);
-        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+        s_log(LOG_DEBUG, "[server] recv delta left %d k.", protocol->will_recv_data_len / 1024);
     }
     memcpy(&protocol->big_cache[protocol->big_cache_counts], data, len);
     protocol->big_cache_counts += len;
@@ -746,7 +746,7 @@ int trans_status_on_ack_send_del(char* data, unsigned long len, sync_protocol* p
         fwrite(protocol->big_cache, protocol->big_cache_counts, 1, file);
         protocol->big_cache_counts = 0;
         fclose(file);
-        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+        s_log(LOG_DEBUG, "[server] recv delta left %d k.", protocol->will_recv_data_len / 1024);
     }
 
     /*
@@ -844,7 +844,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
         fclose(file);
         add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         protocol->instance_p->task_push = 0;
-        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+        s_log(LOG_DEBUG, "[server] recv new left %d k.", protocol->will_recv_data_len / 1024);
     }
     memcpy(&protocol->big_cache[protocol->big_cache_counts], data, len);
     protocol->big_cache_counts += len;
@@ -862,7 +862,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
         fclose(file);
         add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         protocol->instance_p->task_push = 0;
-        s_log(LOG_DEBUG, "[server] recv left %d k.", protocol->will_recv_data_len / 1024);
+        s_log(LOG_DEBUG, "[server] recv new left %d k.", protocol->will_recv_data_len / 1024);
     }
 
     /*
@@ -891,6 +891,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
             return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
         }
         update_file_time(protocol->file_name, protocol->file_time);
+        add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         set_protocol_status_ok(SERVER_RECV_NEW_END, protocol);
     }
     return 0;

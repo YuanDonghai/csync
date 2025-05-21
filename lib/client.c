@@ -34,7 +34,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             format_file_name(ch_path);
             s_log(LOG_DEBUG, "[client] sync directory: %s.", ch_path);
-            //client_modify_os_file_name(os_type, ch_path);
+            client_modify_os_file_name(os_type, ch_path);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath, s_time, os_type);
         }
@@ -83,9 +83,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
 
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket)
 {
-
     WSADATA wsaData;
-
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
         s_log(LOG_ERROR, "[client] WSAStartup failed: %d.", WSAGetLastError());
@@ -305,7 +303,6 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket)
 {
     struct sockaddr_in server_addr;
-
     *client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (*client_socket < 0)
     {
@@ -367,7 +364,7 @@ int client_sync_path(SOCKET client_socket, const char* instance_id)
 
     memset(ch_send, 0, SOCKET_BUF_MAX);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"id\" : \"%s\"}", PATH_SYNC, instance_id);
-    s_log(LOG_DEBUG, "[client] client set sync path for instance %s.", instance_id);
+    s_log(LOG_DEBUG, "[client] client set sync path for instance [%s].", instance_id);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed.");
@@ -384,7 +381,7 @@ int client_sync_path(SOCKET client_socket, const char* instance_id)
         {
             if (0 != strcmp(json_object_get_string(jres), "ok"))
             {
-                s_log(LOG_ERROR, "[client] client set sync path error,instance %s.", instance_id);
+                s_log(LOG_ERROR, "[client] client set sync path error,instance [%s].", instance_id);
                 json_object_put(parsed_json);
                 return CLIENT_ERROR_REQ_NEW;
             }
@@ -490,7 +487,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(short_name, short_name_utf8);
 
-    s_log(LOG_DEBUG, "[client] sync file %s.", short_name);
+    s_log(LOG_DEBUG, "[client] sync file [%s].", short_name);
     if (0 != client_req_sig(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
         s_log(LOG_ERROR, "[client] client request signature error, [%s]", short_name);
@@ -516,7 +513,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
         }
         if (ack_sig_len == -1)
         {
-            s_log(LOG_DEBUG, "[client] client file time is older .");
+            s_log(LOG_DEBUG, "[client] client file time is older, do not need sync.");
             return 0;
         }
 
@@ -549,7 +546,6 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
         check_remove_file(sig_file_name);
         check_remove_file(delta_file_name);
     }
-
     return 0;
 }
 int client_sync_empty_file(SOCKET client_socket, const char* file_name, const char* short_name)
@@ -569,7 +565,7 @@ int client_sync_empty_file(SOCKET client_socket, const char* file_name, const ch
     char short_name_utf8[FILE_PATH_MAX_LEN];
     os_char_to_utf8(short_name, short_name_utf8);
 
-    s_log(LOG_DEBUG, "[client] sync empty file %s.", short_name);
+    s_log(LOG_DEBUG, "[client] sync empty file [%s].", short_name);
     if (0 != client_check_empty_file(client_socket, file_name, short_name_utf8, &ack_sig_len, trans_check_sum))
     {
         s_log(LOG_ERROR, "[client] client sync empty file erro, [%s].", short_name);
@@ -666,7 +662,7 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
 
     //memset(ch_send, 0, SOCKET_BUF_MAX);
    // sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"file\" : \"%s\"}", CLIENT_REQ_SIG, file_name);
-    s_log(LOG_DEBUG, "[client] client request signature.");
+    s_log(LOG_DEBUG, "[client] client request signature [%s].", short_name);
     if (send(client_socket, ch_send, strlen(ch_send), 0) == SOCKET_ERROR)
     {
         s_log(LOG_ERROR, "[client] send failed.");
@@ -676,7 +672,6 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
     int recv_len = recv(client_socket, ch_recv, SOCKET_BUF_MAX, 0);
     if (recv_len > 0)
     {
-        s_log(LOG_DEBUG, "[client] server ack signature : %s.", ch_recv);
         parsed_json = json_tokener_parse(ch_recv);
         struct json_object* jtype;
         if (json_object_object_get_ex(parsed_json, "type", &jtype))

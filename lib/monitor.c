@@ -1016,7 +1016,7 @@ void add_sync_task_in_queue(struct instance_meta* instance_p, int action, char* 
 void add_self_task_in_queue(struct instance_meta* instance_p, int action, char* fname, char* short_name, int type)
 {
     // s_log(LOG_DEBUG, "add_self_task_in_queue file %s ,action %d .", fname, action);
-    _sleep_or_Sleep(200);
+    _sleep_or_Sleep(100);
     char rename_f[FILE_PATH_MAX_LEN];
     if (action == 5)
     {
