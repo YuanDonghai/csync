@@ -55,67 +55,131 @@ function Sidebar({ url, show }) {
 };
 
 function Events({ }) {
-  const [events, setEvents] = useState([]);
-  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState([]);
+  const [nodes, setNodes] = useState([]); // 存储节点列表
+  const [allNodes, setAllNodes] = useState([]); // 存储所有节点（用于第二个下拉框）
+  const [newNodeID, setNewNodeID] = useState('');
+  const [newNodeName, setNewNodeName] = useState('');
+  const [selectedWssId, setSelectedWssId] = useState(''); // 新增：用于存储选择的 wss_id
 
   const refresh = () =>
-    fetch('api/events/get', {
-      method: 'POST', body: JSON.stringify({ page: page }),
-    }).then(r => r.json())
-      .then(r => setEvents(r));
+    fetch('api/instances')
+      .then(r => r.json())
+      .then(r => {
+        console.log('API Response:', r);
+        setStats(r);
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
+      });
 
-  useEffect(refresh, [page]);
+  // 获取节点列表
+  const fetchNodes = () =>
+    fetch('api/wss') // 假设这是获取节点列表的API端点
+      .then(r => r.json())
+      .then(r => {
+        console.log('Nodes fetched:', r);
+        setNodes(r);
+      })
+      .catch(error => {
+        console.error('Error fetching nodes:', error);
+      });
 
-  useEffect(() => {
-    setPage(JSON.parse(localStorage.getItem('page')));
-  }, []);
+  // 获取所有节点（用于第二个下拉框）
+  const fetchAllNodes = () =>
+    fetch('api/nodes') // 获取所有节点的API端点
+      .then(r => r.json())
+      .then(r => {
+        console.log('All nodes fetched:', r);
+        setAllNodes(r);
+      })
+      .catch(error => {
+        console.error('Error fetching all nodes:', error);
+      });
 
-  useEffect(() => {
-    localStorage.setItem('page', page.toString());
-  }, [page]);
-
-  const Th = props => html`<th scope="col" class="sticky top-0 z-10 border-b border-slate-300 bg-white bg-opacity-75 py-1.5 px-4 text-left text-sm font-semibold text-slate-900 backdrop-blur backdrop-filter">${props.title}</th>`;
-  const Td = props => html`<td class="whitespace-nowrap border-b border-slate-200 py-2 px-4 pr-3 text-sm text-slate-900">${props.text}</td>`;
-  const Prio = ({ prio }) => {
-    const text = ['high', 'medium', 'low'][prio];
-    const colors = [tipColors.red, tipColors.yellow, tipColors.green][prio];
-    return html`<${Colored} colors=${colors} text=${text} />`;
+  // 处理获取节点JSON并发送POST请求
+  const handleGetNodeJson = (node) => {
+    fetch('api/instances', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(node), // 发送整个节点对象
+    })
+      .then(r => r.json())
+      .then(r => {
+        console.log('Node JSON sent:', r);
+        refresh(); // 刷新数据
+      })
+      .catch(error => {
+        console.error('Error sending node JSON:', error);
+      });
   };
 
-  const Event = ({ e }) => html`
-<tr>
-  <${Td} text=${['power', 'hardware', 'tier3', 'tier4'][e.type]} />
-  <${Td} text=${html`<${Prio} prio=${e.prio}/>`} />
-  <${Td} text=${e.time ? (new Date(e.time * 1000)).toLocaleString() : '1970-01-01'} />
-  <${Td} text=${e.text} />
-<//>`;
+  // 新增：获取选中节点的完整对象
+  const getSelectedNode = () => {
+    return nodes.find(node => node.id === selectedWssId);
+  };
+
+  useEffect(() => {
+    refresh();
+    fetchNodes();
+    fetchAllNodes(); // 组件挂载时获取所有节点
+  }, []);
 
   return html`
-<div class="m-4 divide-y divide-gray-200 overflow-auto rounded bg-white">
-  <div class="font-semibold flex items-center text-gray-600 px-3 justify-between whitespace-nowrap">
-    <div class="font-semibold flex items-center text-gray-600">
-      <div class="mr-4">EVENT LOG</div>
-    </div>
-    <${Pagination} currentPage=${page} setPageFn=${setPage} totalItems=400 itemsPerPage=20 />
-  <//>
-  <div class="inline-block min-w-full align-middle" style="max-height: 82vh; overflow: auto;">
-    <table class="min-w-full border-separate border-spacing-0">
-      <thead>
-        <tr>
-          <${Th} title="Type" />
-          <${Th} title="Prio" />
-          <${Th} title="Time" />
-          <${Th} title="Description" />
-        </tr>
-      </thead>
-      <tbody>
-        ${(events.arr ? events.arr : []).map(e => h(Event, { e }))}
-      </tbody>
-    </table>
-  <//>
-<//>`;
-};
+    <div class="p-2">
+      <div class="p-4 sm:p-2 mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        ${stats.filter(node => !node.id).map(node => html`
+          <div class="bg-white border rounded-md shadow-lg p-4 relative">
+            <h3 class="font-semibold mb-2">${node.name}</h3>
+            ${node.id ? '' : html`
+              <div class="mt-2">
+                <input
+                  type="text"
+                  value=${node.name || ''}
+                  onchange=${e => {
+              const updatedStats = [...stats];
+              const index = updatedStats.findIndex(n => n.id === node.id);
+              if (index !== -1) {
+                updatedStats[index] = { ...updatedStats[index], name: e.target.value };
+                setStats(updatedStats);
+              }
+            }}
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div class="flex items-center space-x-4">
+          <select
+            value=${selectedWssId}
+            onchange=${e => setSelectedWssId(e.target.value)}
+            class="p-2 border rounded-md w-64 h-10"
+          >
+            <option value="" disabled selected>Select wss_id</option>
+            ${nodes.map(node => html`
+              <option value="${node.id}">${node.name}</option>
+            `)}
+          </select>
 
+          <div class="mb-1 mt-3 flex place-content-end">
+            <${Button} icon=${Icons.save} onclick=${() => handleGetNodeJson(getSelectedNode())} title="add node" />
+          </div>
+        </div>   
+            `}
+            <div class="space-y-2 mt-4">
+              <div>name: ${node.name || 'N/A'}</div>
+              <div>id: ${node.id || 'N/A'}</div>
+              <div>wss_id: ${node.wss_id || 'N/A'}</div>        
+              <div>peer_node: ${node.peer_node || 'N/A'}</div>
+              <div>peer_iid: ${node.peer_iid || 'N/A'}</div>
+              <div>status: ${node.status || 'N/A'}</div>
+            </div>
+          </div>
+        `)}
+      </div>
+    </div>
+  `;
+}
 function Chart({ data }) {
   const n = data.length /* entries */, w = 20 /* entry width */, ls = 15/* left space */;
   const h = 100 /* graph height */, yticks = 5 /* Y axis ticks */, bs = 10 /* bottom space */;
@@ -164,14 +228,27 @@ function Main({ }) {
   const refresh = () => fetch('api/node').then(r => r.json()).then(r => setStats(r));
   useEffect(refresh, []);
   if (!stats) return '';
+  const getOsName = (osType) => {
+    switch (osType) {
+      case 0:
+        return 'Windows';
+      case 1:
+        return 'Linux';
+      default:
+        return 'Unknown';
+    }
+  }
   return html`
 <div class="p-2">
   <div class="p-4 sm:p-2 mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <${Stat} title="name" text="${stats.name}" tipText="good" tipIcon=${Icons.ok} tipColors=${tipColors.green} />  
-    <${Stat} title="id" text="${stats.id}" tipText="good" tipIcon=${Icons.ok} tipColors=${tipColors.green} /> 
-    <div class="bg-white col-span-2 border rounded-md shadow-lg" role="alert">
-      <${DeveloperNote} text="Stats data is received from the Mongoose backend" />
-    <//>
+    <div class="bg-white col-span-2 border rounded-md shadow-lg p-4">
+      <h3 class="font-semibold mb-2">${stats.name}</h3>
+      <div class="space-y-2">
+        <div>name: ${stats.name || 'namerserver'}</div>
+        <div>  id: ${stats.id || 'id'}</div>
+        <div>type: ${getOsName(stats.os_type)}</div>
+      </div>
+    </div>
   <//>
 <//>`;
 };
@@ -197,129 +274,158 @@ function FirmwareStatus({ title, info, children }) {
 
 function Instance({ }) {
   const [stats, setStats] = useState([]);
-  const [newNodeAddr, setNewNodeAddr] = useState(''); // 用于存储输入框的值
-  const [newNodeID, setNewNodeID] = useState(''); // 用于存储输入框的值
-  const [newNodeName, setNewNodeName] = useState(''); // 用于存储输入框的值
-  const [newNodeAPI, setNewNodeAPI] = useState(''); // 用于存储输入框的值
-  const [newNodePort, setNewNodePort] = useState(''); // 用于存储输入框的值
+  const [nodes, setNodes] = useState([]); // 存储节点列表
+  const [allNodes, setAllNodes] = useState([]); // 存储所有节点（用于第二个下拉框）
+  const [newNodeID, setNewNodeID] = useState('');
+  const [newNodeName, setNewNodeName] = useState('');
 
   const refresh = () =>
     fetch('api/instances')
       .then(r => r.json())
       .then(r => {
-        console.log('API Response:', r); // 调试用
+        console.log('API Response:', r);
         setStats(r);
       })
       .catch(error => {
-        console.error('Fetch error:', error); // 调试用
+        console.error('Fetch error:', error);
       });
 
+  // 获取节点列表
+  const fetchNodes = () =>
+    fetch('api/wss') // 假设这是获取节点列表的API端点
+      .then(r => r.json())
+      .then(r => {
+        console.log('Nodes fetched:', r);
+        setNodes(r);
+      })
+      .catch(error => {
+        console.error('Error fetching nodes:', error);
+      });
+
+  // 获取所有节点（用于第二个下拉框）
+  const fetchAllNodes = () =>
+    fetch('api/nodes') // 获取所有节点的API端点
+      .then(r => r.json())
+      .then(r => {
+        console.log('All nodes fetched:', r);
+        setAllNodes(r);
+      })
+      .catch(error => {
+        console.error('Error fetching all nodes:', error);
+      });
+
+  const handleEditNode = (node) => {
+    // 这里处理编辑逻辑，例如打开一个模态框或导航到编辑页面
+    console.log('Editing node:', node);
+    // 示例：打开一个模态框
+    // setSelectedNode(node);
+    // setIsEditing(true);
+  };
+
   const handleAddNode = () => {
-    fetch('api/wss', {
+    // 确保两个下拉框都有值
+    if (!newNodeName || !newNodeID) {
+      console.error('Please select both wss_id and node to share');
+      return;
+    }
+
+    fetch('api/instances', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        "id": newNodeID,
-        "name": newNodeName,
-        "path": newNodeAddr
-      }), // 发送新节点的名称
+        "wss_id": newNodeName, // 使用第一个下拉框的值
+        "type": 2,
+        "nodes": [newNodeID] // 使用第二个下拉框的值
+      }),
     })
       .then(r => r.json())
       .then(r => {
-        console.log('Node added:', r); // 调试用
-        setNewNodeName(''); // 清空输入框
+        console.log('Node added:', r);
+        setNewNodeName('');
         setNewNodeID('');
-        setNewNodeAddr('');
-        setNewNodeAPI('');
-        setNewNodePort('');
-        refresh(); // 刷新节点列表
+        refresh();
+        fetchNodes(); // 刷新节点列表
+        fetchAllNodes(); // 刷新所有节点列表
       })
       .catch(error => {
-        console.error('Error adding node:', error); // 调试用
+        console.error('Error adding node:', error);
       });
   };
 
   useEffect(() => {
     refresh();
+    fetchNodes();
+    fetchAllNodes(); // 组件挂载时获取所有节点
   }, []);
 
   return html`
     <div class="p-2">
       <div class="mb-4 p-4 bg-white border rounded-md shadow-lg">
         <div class="flex items-center space-x-4">
-          <input
-            type="text"
+          <select
             value=${newNodeName}
             onchange=${e => setNewNodeName(e.target.value)}
-            placeholder="name"
             class="p-2 border rounded-md w-64 h-10"
-          />
-          <input
-            type="text"
+          >
+            <option value="" disabled selected>Select wss_id</option>
+            ${nodes.map(node => html`
+              <option value="${node.id}">${node.name}</option>
+            `)}
+          </select>
+
+          <select
             value=${newNodeID}
             onchange=${e => setNewNodeID(e.target.value)}
-            placeholder="id"
             class="p-2 border rounded-md"
-          />
-        </div>
-        <div class="flex items-center space-x-4">
-          <input
-            type="text"
-            value=${newNodeAddr}
-            onchange=${e => setNewNodeAddr(e.target.value)}
-            placeholder="path"
-            class="p-2 border rounded-md w-64 h-10"
-          />
-        
+          >
+            <option value="" disabled selected>Select nodes to share</option>
+            ${allNodes.map(node => html`
+              <option value="${node.id}">${node.name}</option>
+            `)}
+          </select>
 
-        <div class="mb-1 mt-3 flex place-content-end">
-          <${Button} icon=${Icons.save} onclick=${handleAddNode} title="add node" />
-        </div>
+          <div class="mb-1 mt-3 flex place-content-end">
+            <${Button} icon=${Icons.save} onclick=${handleAddNode} title="add node" />
+          </div>
+        </div>       
       </div>
 
       <div class="p-4 sm:p-2 mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        ${stats.map(node => html`
-          <div class="bg-white border rounded-md shadow-lg p-4">
-            <${Stat} 
-              title="Name" 
-              text="${node.name}" 
-            />
-            <${Stat} 
-              title="ID" 
-              text="${node.id}" 
-            />
-            <${Stat} 
-              title="wss id" 
-              text="${node.wss_id}" 
-            />    
-             <${Stat} 
-              title="peer" 
-              text="${node.peer_node}" 
-            />    
-             <${Stat} 
-              title="peer id" 
-              text="${node.peer_iid}" 
-            />    
-             <${Stat} 
-              title="type" 
-              text="${node.type}" 
-            />           
-          </div>
-        `)}
+  ${stats.map(node => html`
+    <div class="bg-white border rounded-md shadow-lg p-4 relative">
+      ${node.id ? '' : html`
+        <div class="absolute top-2 right-2">
+          <button 
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
+            onclick=${() => handleEditNode(node)}
+          >
+            Edit
+          </button>
+        </div>
+        <h3 class="font-semibold mb-2">lookl</h3>
+      `}
+      <h3 class="font-semibold mb-2">${node.name}</h3>
+      <div class="space-y-2">
+        <div>name: ${node.name || 'N/A'}</div>
+        <div>id: ${node.id || 'N/A'}</div>
+        <div>wss_id: ${node.wss_id || 'N/A'}</div>        
+        <div>peer_node: ${node.peer_node || 'N/A'}</div>
+        <div>peer_iid: ${node.peer_iid || 'N/A'}</div>
+        <div>status: ${node.status || 'N/A'}</div>
       </div>
+    </div>
+  `)}
+</div>
     </div>
   `;
 }
 
 function Workspace({ }) {
   const [stats, setStats] = useState([]);
-  const [newNodeAddr, setNewNodeAddr] = useState(''); // 用于存储输入框的值
-  const [newNodeID, setNewNodeID] = useState(''); // 用于存储输入框的值
-  const [newNodeName, setNewNodeName] = useState(''); // 用于存储输入框的值
-  const [newNodeAPI, setNewNodeAPI] = useState(''); // 用于存储输入框的值
-  const [newNodePort, setNewNodePort] = useState(''); // 用于存储输入框的值
+  const [newpath, setWssPath] = useState(''); // 用于存储输入框的值  
+  const [newwssname, setWSSName] = useState(''); // 用于存储输入框的值
 
   const refresh = () =>
     fetch('api/wss')
@@ -339,19 +445,13 @@ function Workspace({ }) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        "id": newNodeID,
-        "name": newNodeName,
-        "path": newNodeAddr
+        "name": newwssname,
+        "path": newpath
       }), // 发送新节点的名称
     })
       .then(r => r.json())
       .then(r => {
         console.log('Node added:', r); // 调试用
-        setNewNodeName(''); // 清空输入框
-        setNewNodeID('');
-        setNewNodeAddr('');
-        setNewNodeAPI('');
-        setNewNodePort('');
         refresh(); // 刷新节点列表
       })
       .catch(error => {
@@ -369,24 +469,17 @@ function Workspace({ }) {
         <div class="flex items-center space-x-4">
           <input
             type="text"
-            value=${newNodeName}
-            onchange=${e => setNewNodeName(e.target.value)}
+            value=${newwssname}
+            onchange=${e => setWSSName(e.target.value)}
             placeholder="name"
             class="p-2 border rounded-md w-64 h-10"
-          />
-          <input
-            type="text"
-            value=${newNodeID}
-            onchange=${e => setNewNodeID(e.target.value)}
-            placeholder="id"
-            class="p-2 border rounded-md"
-          />
+          />          
         </div>
         <div class="flex items-center space-x-4">
           <input
             type="text"
-            value=${newNodeAddr}
-            onchange=${e => setNewNodeAddr(e.target.value)}
+            value=${newpath}
+            onchange=${e => setWssPath(e.target.value)}
             placeholder="path"
             class="p-2 border rounded-md w-64 h-10"
           />
@@ -400,19 +493,13 @@ function Workspace({ }) {
       <div class="p-4 sm:p-2 mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${stats.map(node => html`
           <div class="bg-white border rounded-md shadow-lg p-4">
-            <${Stat} 
-              title="Name" 
-              text="${node.name}" 
-            />
-            <${Stat} 
-              title="ID" 
-              text="${node.id}" 
-            />
-            <${Stat} 
-              title="Path" 
-              text="${node.path}" 
-            />           
-          </div>
+        <h3 class="font-semibold mb-2">${node.name}</h3>
+        <div class="space-y-2">
+          <div>name: ${node.name || 'N/A'}</div>
+          <div>id: ${node.id || 'N/A'}</div>
+          <div>path: ${node.path || 'N/A'}</div>        
+        </div>
+        </div>
         `)}
       </div>
     </div>
@@ -445,21 +532,13 @@ function Nodes({ }) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        "id": newNodeID,
-        "name": newNodeName,
         "address": newNodeAddr,
-        "api_url": newNodeAPI,
-        "sync_port": newNodePort
       }), // 发送新节点的名称
     })
       .then(r => r.json())
       .then(r => {
-        console.log('Node added:', r); // 调试用
-        setNewNodeName(''); // 清空输入框
-        setNewNodeID('');
+        console.log('Node added:', r); // 调试用       
         setNewNodeAddr('');
-        setNewNodeAPI('');
-        setNewNodePort('');
         refresh(); // 刷新节点列表
       })
       .catch(error => {
@@ -473,23 +552,7 @@ function Nodes({ }) {
 
   return html`
     <div class="p-2">
-      <div class="mb-4 p-4 bg-white border rounded-md shadow-lg">
-        <div class="flex items-center space-x-4">
-          <input
-            type="text"
-            value=${newNodeName}
-            onchange=${e => setNewNodeName(e.target.value)}
-            placeholder="name"
-            class="p-2 border rounded-md w-64 h-10"
-          />
-          <input
-            type="text"
-            value=${newNodeID}
-            onchange=${e => setNewNodeID(e.target.value)}
-            placeholder="id"
-            class="p-2 border rounded-md"
-          />
-        </div>
+      <div class="mb-4 p-4 bg-white border rounded-md shadow-lg">        
         <div class="flex items-center space-x-4">
           <input
             type="text"
@@ -497,25 +560,8 @@ function Nodes({ }) {
             onchange=${e => setNewNodeAddr(e.target.value)}
             placeholder="address"
             class="p-2 border rounded-md w-64 h-10"
-          />
-          <input
-            type="text"
-            value=${newNodeAPI}
-            onchange=${e => setNewNodeAPI(e.target.value)}
-            placeholder="API URL"
-            class="p-2 border rounded-md"
-          />
-        </div>
-        <div class="flex items-center space-x-4">
-          <input
-            type="number"
-            value=${newNodePort}
-            onchange=${e => setNewNodePort(e.target.value)}
-            placeholder="Port"
-            class="p-2 border rounded-md w-64 h-10"
-          />           
-        </div>
-
+          />          
+        
         <div class="mb-1 mt-3 flex place-content-end">
           <${Button} icon=${Icons.save} onclick=${handleAddNode} title="add node" />
         </div>
@@ -523,31 +569,16 @@ function Nodes({ }) {
 
       <div class="p-4 sm:p-2 mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${stats.map(node => html`
-          <div class="bg-white border rounded-md shadow-lg p-4">
-            <${Stat} 
-              title="Name" 
-              text="${node.name}" 
-              tipText="good" 
-              tipIcon=${Icons.ok} 
-              tipColors=${tipColors.green} 
-            />
-            <${Stat} 
-              title="ID" 
-              text="${node.id}" 
-            />
-            <${Stat} 
-              title="Address" 
-              text="${node.address}" 
-            />
-            <${Stat} 
-              title="API URL" 
-              text="${node.api_url}" 
-            />
-            <${Stat} 
-              title="Sync Port" 
-              text="${node.sync_port}" 
-            />
-          </div>
+        <div class="bg-white border rounded-md shadow-lg p-4">
+        <h3 class="font-semibold mb-2">${node.name}</h3>
+        <div class="space-y-2">
+          <div>name: ${node.name || 'N/A'}</div>
+          <div>id: ${node.id || 'N/A'}</div>
+          <div>address: ${node.address || 'N/A'}</div>
+          <div>url: ${node.api_url || 'N/A'}</div>
+          <div>port: ${node.sync_port || 'N/A'}</div>
+        </div>
+      </div>
         `)}
       </div>
     </div>
