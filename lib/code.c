@@ -67,6 +67,11 @@ void format_path(char* path)
         {
             path[i] = 0x00;
         }
+        free(swap);
+    }
+    else
+    {
+        free(swap);
     }
 }
 
@@ -339,6 +344,39 @@ int dump_json_to_file(struct json_object* json_data, const char* file_path)
     return 0;
 }
 
+void long_to_kmg(long lnum, char* ch_res)
+{
+    float fnum = 0;
+    //const char ch_res[32];
+    //memset(ch_res, 0, 32);
+    if (lnum > 1024)
+    {
+        fnum = (float)lnum / 1024;
+        if (fnum > 1024)
+        {
+            fnum = fnum / 1024;
+            if (fnum > 1024)
+            {
+                fnum = fnum / 1024;
+                sprintf_s(ch_res, 32, "%.2f GB", fnum);
+            }
+            else
+            {
+                sprintf_s(ch_res, 32, "%.2f MB", fnum);
+            }
+        }
+        else
+        {
+            sprintf_s(ch_res, 32, "%.2f KB", fnum);
+        }
+    }
+    else
+    {
+        sprintf_s(ch_res, 32, "%ld B", lnum);
+    }
+    // return ch_res;
+}
+
 const char* trans_char_to_local(char* char_str)
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -375,3 +413,5 @@ void os_char_to_utf8(char* char_str, char* ch_out)
 
 #endif
 }
+
+

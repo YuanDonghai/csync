@@ -647,7 +647,7 @@ int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protoc
 
             if (json_object_object_get_ex(parsed_json, "length", &jvalue))
             {
-                protocol->will_recv_data_len = json_object_get_int(jvalue);
+                protocol->will_recv_data_len = json_object_get_int64(jvalue);
                 protocol->data_recv_data_len = protocol->will_recv_data_len;
             }
             if (json_object_object_get_ex(parsed_json, "checksum", &jvalue))
@@ -851,7 +851,9 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
         fclose(file);
         add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         protocol->instance_p->task_push = 0;
-        s_log(LOG_DEBUG, "[server] recv new left %d k.", protocol->will_recv_data_len / 1024);
+        char ch_left[32];
+        long_to_kmg(protocol->will_recv_data_len, ch_left);
+        s_log(LOG_DEBUG, "[server] recv new left %s.", ch_left);
     }
     memcpy(&protocol->big_cache[protocol->big_cache_counts], data, len);
     protocol->big_cache_counts += len;
@@ -869,7 +871,9 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
         fclose(file);
         add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         protocol->instance_p->task_push = 0;
-        s_log(LOG_DEBUG, "[server] recv new left %d k.", protocol->will_recv_data_len / 1024);
+        char ch_left[32];
+        long_to_kmg(protocol->will_recv_data_len, ch_left);
+        s_log(LOG_DEBUG, "[server] recv new left %s.", ch_left);
     }
 
     /*

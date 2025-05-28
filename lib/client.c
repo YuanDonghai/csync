@@ -474,7 +474,7 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
 {
     long ack_sig_len = 0;
     long delta_len = 0;
-    long new_file_len = 0;
+    __int64 new_file_len = 0;
     char trans_check_sum[CHECK_SUM_LEN];
     memset(trans_check_sum, 0, CHECK_SUM_LEN);
     char sig_file_name[32];
@@ -1131,19 +1131,22 @@ int client_send_delta(SOCKET client_socket, const char* delta_name, long* delta_
     return 0;
 }
 
-int client_req_new(SOCKET client_socket, const char* file_name, const char* short_name, long* file_len, char* check_sum)
+int client_req_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum)
 {
     char ch_send[SOCKET_BUF_MAX];
     char ch_recv[SOCKET_BUF_MAX];
+    *file_len = int64_get_file_length(file_name);
     FILE* file = fopen(file_name, "rb");
     if (!file)
     {
         s_log(LOG_ERROR, "[client] sync open file %s error.", file_name);
         return CLIENT_ERROR_REQ_NEW;
     }
+    /*
     fseek(file, 0, SEEK_END);
-    long lend = ftell(file);
+    size_t lend = ftell(file);
     *file_len = lend;
+    */
 
     fseek(file, 0, SEEK_SET);
     char ch_out[32];
@@ -1155,7 +1158,7 @@ int client_req_new(SOCKET client_socket, const char* file_name, const char* shor
     ch_out_hex[32] = 0;
     struct json_object* node_new = json_object_new_object();
     json_object_object_add(node_new, "type", json_object_new_int(CLIENT_SEND_NEW));
-    json_object_object_add(node_new, "length", json_object_new_int(lend));
+    json_object_object_add(node_new, "length", json_object_new_int64(*file_len));
     json_object_object_add(node_new, "checksum", json_object_new_string(ch_out_hex));
     memset(ch_send, 0, SOCKET_BUF_MAX);
     sprintf_s(ch_send, SOCKET_BUF_MAX, "%s", json_object_get_string(node_new));
@@ -1192,7 +1195,7 @@ int client_req_new(SOCKET client_socket, const char* file_name, const char* shor
     return 0;
 }
 
-int client_send_new(SOCKET client_socket, const char* file_name, const char* short_name, long* file_len, char* check_sum)
+int client_send_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum)
 {
     char ch_send[SOCKET_BUF_MAX];
     char ch_recv[SOCKET_BUF_MAX];

@@ -21,6 +21,7 @@
 #include <locale.h>
 #else
 //others
+typedef __int64_t __int64;
 #endif
 
 #define FILE_PATH_MAX_LEN 4096
@@ -56,4 +57,7 @@ int dump_json_to_file(struct json_object* json_data, const char* file_path);
 
 void _sleep_or_Sleep(int ms);
 static char uuid_ch[39];
+
+void long_to_kmg(long lnum, char* ch_res);
+
 #endif

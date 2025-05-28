@@ -78,8 +78,8 @@ int client_rename_file_s(SOCKET client_socket, const char* filename1, const char
 int client_recv_sig(SOCKET client_socket, const char* file_name, const char* short_name, const char* sig_name, long* ack_sig_len, char* check_sum);
 int client_req_delta(SOCKET client_socket, const char* file_name, const char* short_name, const char* sig_name, const char* delta_name, long* delta_len, char* check_sum);
 int client_send_delta(SOCKET client_socket, const char* delta_name, long* delta_len);
-int client_req_new(SOCKET client_socket, const char* file_name, const char* short_name, long* file_len, char* check_sum);
-int client_send_new(SOCKET client_socket, const char* file_name, const char* short_name, long* file_len, char* check_sum);
+int client_req_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum);
+int client_send_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum);
 
 
 int check_remove_file(const char* file_name);

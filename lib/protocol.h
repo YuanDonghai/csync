@@ -25,11 +25,12 @@
 #include "csync_error.h"
 #include "protocol_sm.h"
 #include "monitor.h"
+#include "file_extend.h"
 
 #define FILE_NAME_MAX_LENGTH 4096
 #define CHECK_SUM_LEN 32+1
 #define RESP_DATA_MAX_LENGTH 4096
-#define BIG_CACHE_SIZE  1024 * 1024 *4
+#define BIG_CACHE_SIZE  1024 * 1024 *64
 #define FILE_TIME_DIFF 1
 //#define INSTANCE_ID_LEN 32
 
@@ -68,7 +69,7 @@ typedef struct
     char delta_name[FILE_NAME_MAX_LENGTH];
     char* next_data;
     long next_data_len;
-    long will_recv_data_len;
+    __int64 will_recv_data_len;
     char will_recv_checksum[CHECK_SUM_LEN];
     long data_recv_data_len;
     size_t recv_counts;
@@ -104,5 +105,6 @@ long get_file_length(char* fname);
 int read_file_to_buff(char* fname, char* data, long len);
 long get_file_length_md5(const char* file_name, char* buf);
 void update_file_time(const char* fname, time_t f_time);
+
 
 #endif
