@@ -108,8 +108,8 @@ int main()
     set_log_params("log.txt", 0, LOG_DEBUG);
     s_log(LOG_INFO, "starting csync process.");
     // create cache dir
-    create_dir("cache");
-    create_dir("config");
+    directory_create("cache");
+    directory_create("config");
     load_config(CONFIG_PATH);
     load_users_config(base_get_others_path(USER));
     load_default_nodes_instances(base_get_others_path(NEIGHBOR), base_get_others_path(INSTANCE));

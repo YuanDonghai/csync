@@ -235,7 +235,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                     case 1:// create
                         if (instance_p->task_queues[i].type == 0)//file
                         {
-                            if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                            if (0 < file_length_int64(instance_p->task_queues[i].name))
                             {
                                 client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                             }
@@ -253,7 +253,7 @@ DWORD WINAPI thread_start_sync_task(LPVOID lpParam)
                         client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
                         break;
                     case 3://write
-                        if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                        if (0 < file_length_int64(instance_p->task_queues[i].name))
                         {
                             client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                         }
@@ -368,7 +368,7 @@ void watch_directory(const wchar_t* directory_path, struct monitor_path* monitor
                     }
                     else
                     {
-                        add_sync_task_in_queue_w(it_i_p, pNotify->Action, monitor->path, fullPath, check_path_type(fullPath));
+                        add_sync_task_in_queue_w(it_i_p, pNotify->Action, monitor->path, fullPath, file_type_check(fullPath));
                     }
 
                     it_i_p = it_i_p->next;
@@ -412,7 +412,7 @@ void add_sync_task_in_queue_w(struct instance_meta* instance_p, int action, cons
 
     }
 }
-
+/*
 int check_path_type(wchar_t* path)
 {
     DWORD attributes = GetFileAttributes(path);
@@ -432,6 +432,7 @@ int check_path_type(wchar_t* path)
         }
     }
 }
+
 
 int get_time_adj_status()
 {
@@ -480,7 +481,7 @@ long get_file_timestap(const char* fname)
     }
 
     CloseHandle(hFile);
-    /*
+
     if (!FileTimeToSystemTime(&ftModify, &stUTC))
     {
         return 0;
@@ -496,7 +497,7 @@ long get_file_timestap(const char* fname)
     {
         return 0;
     }
-    */
+
 
     ULARGE_INTEGER uli;
     uli.LowPart = ftModify.dwLowDateTime;
@@ -505,7 +506,7 @@ long get_file_timestap(const char* fname)
 
     return fileTime;
 }
-
+*/
 int instance_sync_dir(struct instance_meta* instance_p, LPCTSTR full_dir_path, LPCTSTR dir_path)
 {
 
@@ -643,7 +644,7 @@ void* thread_start_sync_task(void* lpParam)
                     case 1:// create
                         if (instance_p->task_queues[i].type == 0)//file
                         {
-                            if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                            if (0 < file_length_int64(instance_p->task_queues[i].name))
                             {
                                 client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                             }
@@ -661,7 +662,7 @@ void* thread_start_sync_task(void* lpParam)
                         client_delete_file(instance_p->con, instance_p->task_queues[i].short_name);
                         break;
                     case 3://write
-                        if (0 < monitor_get_file_length(instance_p->task_queues[i].name))
+                        if (0 < file_length_int64(instance_p->task_queues[i].name))
                         {
                             client_sync_file(instance_p->con, instance_p->task_queues[i].name, instance_p->task_queues[i].short_name);
                         }
@@ -781,19 +782,19 @@ void watch_directory(const char* directory_path, struct monitor_path* monitor)
             {
                 if (event->mask & IN_CREATE)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 1, monitor->path, full_path, check_path_type(full_path));
-                    if (1 == check_path_type(full_path))
+                    add_sync_task_in_queue_w(it_i_p, 1, monitor->path, full_path, file_type_check(full_path));
+                    if (1 == file_type_check(full_path))
                     {
                         add_watch_recursive(fd, full_path, monitor->wds);
                     }
                 }
                 if (event->mask & IN_MODIFY)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 3, monitor->path, full_path, check_path_type(full_path));
+                    add_sync_task_in_queue_w(it_i_p, 3, monitor->path, full_path, file_type_check(full_path));
                 }
                 if (event->mask & IN_DELETE)
                 {
-                    add_sync_task_in_queue_w(it_i_p, 2, monitor->path, full_path, check_path_type(full_path));
+                    add_sync_task_in_queue_w(it_i_p, 2, monitor->path, full_path, file_type_check(full_path));
                 }
                 if (event->mask & IN_MOVED_FROM)
                 {
@@ -892,7 +893,7 @@ const char* get_inotify_wd_path(struct inotify_wd* inotify_wd_p, int wd)
     }
     return "";
 }
-
+/*
 int check_path_type(const char* path)
 {
     struct stat path_stat;
@@ -909,6 +910,7 @@ int check_path_type(const char* path)
         return 1;
     }
 }
+
 
 int get_time_adj_status()
 {
@@ -932,6 +934,7 @@ int get_time_adj_status()
     return is_synchronized;
 }
 
+
 long get_file_timestap(const char* fname)
 {
     struct stat file_stat;
@@ -946,6 +949,7 @@ long get_file_timestap(const char* fname)
 
     return last_modified;
 }
+*/
 #else
 //others
 #endif
@@ -1316,7 +1320,7 @@ void add_instance_in_monitor_s(struct instance_meta* instance_info)
 
 }
 
-
+/*
 long monitor_get_file_length(char* fname)
 {
     FILE* file = fopen(fname, "rb");
@@ -1332,6 +1336,7 @@ long monitor_get_file_length(char* fname)
     fclose(file);
     return len;
 }
+*/
 
 struct instance_meta* search_instance_p(const char* instance_id)
 {
@@ -1353,7 +1358,7 @@ struct instance_meta* search_instance_p(const char* instance_id)
     return NULL;
 }
 
-
+/*
 void modify_os_file_name(int os_type, char* fname)
 {
     char ch[2] = "\\/";
@@ -1365,4 +1370,5 @@ void modify_os_file_name(int os_type, char* fname)
         }
     }
 }
+*/
 

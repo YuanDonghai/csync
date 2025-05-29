@@ -23,7 +23,7 @@ rs_result rdiff_sig(const char* basis_name, const char* sig_name)
     int strong_len = 0;
     int show_stats = 0;
     int file_force = 0;
-    __int64 basis_file_len = diff_get_file_length(basis_name);
+    __int64 basis_file_len = file_length_int64(basis_name);
     basis_file = rs_file_open(basis_name, "rb", file_force);
     sig_file = rs_file_open(sig_name, "wb", file_force);
 

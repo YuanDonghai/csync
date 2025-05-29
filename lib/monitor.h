@@ -5,6 +5,7 @@
 #include "client.h"
 #include "code.h"
 #include "log.h"
+#include "file_extend.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
@@ -134,7 +135,7 @@ void watch_directory(const wchar_t *directory_path, struct monitor_path *monitor
 
 void add_sync_task_in_queue_w(struct instance_meta *instance_p, int action, const char *sec_fname, const wchar_t *fname, int type);
 int instance_sync_dir(struct instance_meta* instance_p, LPCTSTR full_dir_path, LPCTSTR dir_path);
-int check_path_type(wchar_t* path);
+//int check_path_type(wchar_t* path);
 #elif defined(__linux__)
 // linux
 void *thread_start_monitor_directory(void *lpParam);
@@ -145,26 +146,20 @@ void add_sync_task_in_queue_w(struct instance_meta *instance_p, int action, cons
 void add_inotify_wd(struct inotify_wd *inotify_wd_p, int wd, char *path);
 void show_inotify_wd(struct inotify_wd *inotify_wd_p);
 const char *get_inotify_wd_path(struct inotify_wd *inotify_wd_p, int wd);
-int check_path_type(const char* path);
+//int check_path_type(const char* path);
 #else
 // others
 #endif
 
 void add_sync_task_in_queue(struct instance_meta *instance_p, int action, char *fname1, char *fname2, int type);
 void add_self_task_in_queue(struct instance_meta *instance_p, int action, char *fname1, char *fname2, int type);
-int compare_path(const char *path1, const char *path2);
-
-struct instance_meta *malloc_instance_meta(const char *id, const char *peer_id, const char *name, const char *path, const char *address, int port);
-
+int compare_path(const char* path1, const char* path2);
+struct instance_meta* malloc_instance_meta(const char* id, const char* peer_id, const char* name, const char* path, const char* address, int port);
 struct instance_meta *malloc_instance_meta_s(struct instance_meta *instance_info);
-
-long monitor_get_file_length(char *fname);
-
-struct instance_meta *search_instance_p(const char *instance_id);
-
-void modify_os_file_name(int os_type, char *fname);
-
-int get_time_adj_status();
-long get_file_timestap(const char* fname);
+struct instance_meta* search_instance_p(const char* instance_id);
+//long monitor_get_file_length(char *fname);
+//void modify_os_file_name(int os_type, char *fname);
+//int get_time_adj_status();
+//long get_file_timestap(const char* fname);
 
 #endif

@@ -36,11 +36,9 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #define PATH_ADD_STRING "\\"
-int delete_directory(LPCTSTR dir_path);
 #elif defined(__linux__)
 #define PATH_ADD_STRING "/"
 #else
-//others
 #endif
 
 enum client_type
@@ -71,7 +69,7 @@ typedef struct
     long next_data_len;
     __int64 will_recv_data_len;
     char will_recv_checksum[CHECK_SUM_LEN];
-    long data_recv_data_len;
+    __int64 data_recv_data_len;
     size_t recv_counts;
     size_t send_counts;
     char* big_cache;
@@ -97,14 +95,5 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
 
 int update_instance(const char* instance_id, sync_protocol* protocol);
 int check_locals_time(sync_protocol* protocol);
-int create_dir(const char* dirname);
-int remove_dir(const char* dirname);
-BOOL file_exist(const char* filename);
-int touch_file(const char* filename);
-long get_file_length(char* fname);
-int read_file_to_buff(char* fname, char* data, long len);
-long get_file_length_md5(const char* file_name, char* buf);
-void update_file_time(const char* fname, time_t f_time);
-
 
 #endif

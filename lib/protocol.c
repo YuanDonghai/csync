@@ -1,114 +1,5 @@
 #include "protocol.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-int create_dir(const char* dirname)
-{
-    DWORD attributes = GetFileAttributesA(dirname);
-    if (attributes == INVALID_FILE_ATTRIBUTES)
-    {
-        if (CreateDirectoryA(dirname, NULL))
-        {
-            return 0;
-        }
-        else
-        {
-            s_log(LOG_ERROR, "Failed to create folder: %s. Error: %lu\n", dirname, GetLastError());
-            return -1;
-        }
-    }
-
-    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
-    {
-        return 0;
-    }
-    s_log(LOG_ERROR, "Failed to create folder: %s. path exist", dirname);
-    return -1;
-}
-int delete_directory(LPCTSTR dir_path)
-{
-    WIN32_FIND_DATA findFileData;
-    HANDLE hFind = INVALID_HANDLE_VALUE;
-    TCHAR searchPath[FILE_PATH_MAX_LEN];
-    TCHAR fullPath[FILE_PATH_MAX_LEN];
-
-    _stprintf_s(searchPath, FILE_PATH_MAX_LEN, _T("%s\\*"), dir_path);
-    hFind = FindFirstFile(searchPath, &findFileData);
-    if (hFind == INVALID_HANDLE_VALUE)
-    {
-        s_log(LOG_ERROR, "FindFirstFile failed with error % lu\n", GetLastError());
-        return -1;
-    }
-
-    do
-    {
-        const TCHAR* name = findFileData.cFileName;
-        if (_tcscmp(name, _T(".")) == 0 || _tcscmp(name, _T("..")) == 0)
-        {
-            continue;
-        }
-
-        _stprintf_s(fullPath, FILE_PATH_MAX_LEN, _T("%s\\%s"), dir_path, name);
-
-        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        {
-            delete_directory(fullPath);
-        }
-        else
-        {
-            if (!DeleteFile(fullPath))
-            {
-                s_log(LOG_ERROR, "DeleteFile failed with error %lu for file: %s\n", GetLastError(), fullPath);
-            }
-        }
-    } while (FindNextFile(hFind, &findFileData) != 0);
-
-    DWORD dwError = GetLastError();
-    if (dwError != ERROR_NO_MORE_FILES)
-    {
-        s_log(LOG_ERROR, "Error: FindNextFile failed with error %lu\n", dwError);
-    }
-
-    FindClose(hFind);
-    if (!RemoveDirectory(dir_path))
-    {
-        s_log(LOG_ERROR, "RemoveDirectory failed with error %lu for directory: %s\n", GetLastError(), dir_path);
-        return -1;
-    }
-
-    return 0;
-}
-
-int remove_dir(const char* dirname)
-{
-    wchar_t w_dirname[FILE_PATH_MAX_LEN];
-    char_to_wchar(dirname, w_dirname, FILE_PATH_MAX_LEN, CP_ACP);
-    if (0 == check_path_type(w_dirname))
-    {
-        return !DeleteFile(w_dirname);
-    }
-    else
-    {
-        return delete_directory(w_dirname);
-    }
-
-}
-#elif defined(__linux__)
-int create_dir(const char* dirname)
-{
-    if (mkdir(dirname, 0755) == -1)
-    {
-        return -1;
-    }
-    return 0;
-}
-int remove_dir(const char* dirname)
-{
-    return remove(dirname);
-}
-#else
-// others
-#endif
-
 int push_stream_to_data(char* data, unsigned long len, sync_protocol* protocol)
 {
     int res = 0;
@@ -361,12 +252,12 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 {
                     protocol->file_time = json_object_get_int64(jvalue);
                 }
-                if (0 == file_exist(protocol->file_name))
+                if (0 == file_check_exist(protocol->file_name))
                 {
                     protocol->instance_p->task_push = 1;
-                    if (0 == touch_file(protocol->file_name))
+                    if (0 == file_create(protocol->file_name))
                     {
-                        update_file_time(protocol->file_name, protocol->file_time);
+                        file_update_modify_time(protocol->file_name, protocol->file_time);
                         set_protocol_status_ok(CLIENT_CHECK_FILE_E, protocol);
                         add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
                     }
@@ -378,14 +269,14 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 }
                 else
                 {
-                    long local_file_time = get_file_timestap(protocol->file_name);
+                    long local_file_time = file_get_modify_time(protocol->file_name);
                     //s_log(LOG_DEBUG, "[time] %ld %ld. %ld", file_time, local_file_time, file_time - local_file_time);
                     if (local_file_time < protocol->file_time)
                     {
                         protocol->instance_p->task_push = 1;
-                        if (0 == touch_file(protocol->file_name))
+                        if (0 == file_create(protocol->file_name))
                         {
-                            update_file_time(protocol->file_name, protocol->file_time);
+                            file_update_modify_time(protocol->file_name, protocol->file_time);
                             set_protocol_status_ok(CLIENT_CHECK_FILE_E, protocol);
                             add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
                         }
@@ -418,7 +309,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 {
                     protocol->file_time = json_object_get_int64(jvalue);
                 }
-                if (0 == file_exist(protocol->file_name))
+                if (0 == file_check_exist(protocol->file_name))
                 {
                     char respon_string[RESP_DATA_MAX_LENGTH];
                     memset(respon_string, 0, RESP_DATA_MAX_LENGTH);
@@ -441,7 +332,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                     if (json_object_object_get_ex(parsed_json, "time", &jvalue))
                     {
                         file_time = json_object_get_int64(jvalue);
-                        local_file_time = get_file_timestap(protocol->file_name);
+                        local_file_time = file_get_modify_time(protocol->file_name);
                         //s_log(LOG_DEBUG, "[time] %ld %ld. %ld", file_time, local_file_time, file_time - local_file_time);
                         if (local_file_time >= file_time)
                         {
@@ -452,7 +343,9 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                         else
                         {
                             rdiff_sig(protocol->file_name, protocol->sig_name);
-                            long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
+                            long sig_f_len = file_length_int64(protocol->sig_name);
+                            file_md5_hex(protocol->sig_name, protocol->will_recv_checksum);
+                            //long sig_f_len = get_file_length_md5(protocol->sig_name, protocol->will_recv_checksum);
                             sprintf_s(respon_string, 4096, "{\"type\": %d,\"length\":%ld,\"checksum\":\"%s\"}", SERVER_ACK_SIG, sig_f_len, protocol->will_recv_checksum);
                             protocol->next_data_len = sig_f_len;
                             protocol->next_data = (char*)malloc(sizeof(char) * protocol->next_data_len);
@@ -484,7 +377,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_DEBUG, "[server] create dir %s .", dir_name);
                 protocol->instance_p->task_push = 1;
-                if (0 == create_dir(dir_name))
+                if (0 == directory_create(dir_name))
                 {
                     set_protocol_status_ok(SERVER_ACK_DIR, protocol);
                     // push self action
@@ -511,9 +404,9 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 s_log(LOG_INFO, "[server] client [%s] syncing file [%s] .", protocol->client_address, dir_name);
                 s_log(LOG_DEBUG, "[server] create file %s .", dir_name);
                 protocol->instance_p->task_push = 1;
-                if (0 == touch_file(dir_name))
+                if (0 == file_create(dir_name))
                 {
-                    update_file_time(dir_name, protocol->file_time);
+                    file_update_modify_time(dir_name, protocol->file_time);
                     set_protocol_status_ok(SERVER_ACK_FILE, protocol);
                     add_self_task_in_queue(protocol->instance_p, 1, dir_name, json_object_get_string(jvalue), 0);
                 }
@@ -564,7 +457,7 @@ int trans_status_on_ready(char* data, unsigned long len, sync_protocol* protocol
                 sprintf_s(dir_name, FILE_NAME_MAX_LENGTH, "%s%s%s", protocol->instance_path, PATH_ADD_STRING, trans_char_to_local(json_object_get_string(jvalue)));
                 s_log(LOG_INFO, "[server] client %s delete file %s.", protocol->client_address, dir_name);
                 protocol->instance_p->task_push = 1;
-                if (0 == remove_dir(dir_name))
+                if (0 == directory_delete(dir_name))
                 {
                     set_protocol_status_ok(SERVER_DEL_FILE, protocol);
                     add_self_task_in_queue(protocol->instance_p, 2, dir_name, json_object_get_string(jvalue), 0);
@@ -656,7 +549,7 @@ int trans_status_on_ack_sig(char* data, unsigned long len, sync_protocol* protoc
                 int m_len = strlen(json_object_get_string(jvalue));
                 memcpy(protocol->will_recv_checksum, json_object_get_string(jvalue), m_len);
             }
-            s_log(LOG_DEBUG, "[server] client send file.file length %d .", protocol->will_recv_data_len);
+            s_log(LOG_DEBUG, "[server] client send file.file length %I64d .", protocol->will_recv_data_len);
             set_protocol_status_ok(CLIENT_SEND_NEW, protocol);
             protocol->instance_p->task_push = 1;
             add_self_task_in_queue(protocol->instance_p, 1, protocol->file_name, "", 0);
@@ -812,7 +705,7 @@ int trans_status_on_ack_del(char* data, unsigned long len, sync_protocol* protoc
 
     remove(protocol->file_name);
     int ress = rename(protocol->patch_name, protocol->file_name);
-    update_file_time(protocol->file_name, protocol->file_time);
+    file_update_modify_time(protocol->file_name, protocol->file_time);
     remove(protocol->patch_name);
     set_protocol_status_ok(SERVER_PATCHED, protocol);
     protocol->instance_p->task_push = 1;
@@ -901,7 +794,7 @@ int trans_status_on_recv_new(char* data, unsigned long len, sync_protocol* proto
             protocol->status = ERROR_STS;
             return SYNC_STATUS_ERROR_SERVER_RECVING_NEW;
         }
-        update_file_time(protocol->file_name, protocol->file_time);
+        file_update_modify_time(protocol->file_name, protocol->file_time);
         add_self_task_in_queue(protocol->instance_p, 3, protocol->file_name, "", 0);
         set_protocol_status_ok(SERVER_RECV_NEW_END, protocol);
     }
@@ -936,7 +829,7 @@ int update_instance(const char* instance_id, sync_protocol* protocol)
 #else
         // others
 #endif
-        if (0 == create_dir(protocol->cache_path))
+        if (0 == directory_create(protocol->cache_path))
         {
         }
         memset(protocol->sig_name, 0, FILE_NAME_MAX_LENGTH);
@@ -971,123 +864,3 @@ int check_locals_time(sync_protocol* protocol)
     memcpy(protocol->data, respon_string, strlen(respon_string));
     protocol->status = TIME_SYNC;
 }
-
-BOOL file_exist(const char* filename)
-{
-    FILE* file = fopen(filename, "rb");
-    if (file)
-    {
-        fclose(file);
-        return 1;
-    }
-    return 0;
-}
-
-int touch_file(const char* filename)
-{
-    FILE* file = fopen(filename, "wb");
-    if (file)
-    {
-        fclose(file);
-        return 0;
-    }
-    return 1;
-}
-
-long get_file_length(char* fname)
-{
-    FILE* file = fopen(fname, "rb");
-    if (!file)
-    {
-        s_log(LOG_DEBUG, "[server] config open file error. %s.", fname);
-        return -1;
-    }
-
-    fseek(file, 0, SEEK_END);
-
-    long len = ftell(file);
-    fclose(file);
-    return len;
-}
-
-int read_file_to_buff(char* fname, char* data, long len)
-{
-    FILE* file = fopen(fname, "rb");
-    if (!file)
-    {
-        s_log(LOG_DEBUG, "[server] config open file error. %s.", fname);
-        return -1;
-    }
-
-    fseek(file, 0, SEEK_SET);
-    fread(data, 1, len, file);
-    fclose(file);
-    return 0;
-}
-
-long get_file_length_md5(const char* file_name, char* buf)
-{
-    FILE* fp = fopen(file_name, "rb");
-    long flen = 0;
-    // errno_t err = fopen_s(&fp, file_name, "rb");
-    char ch_out[32];
-    char ch_out_hex[64];
-    memset(ch_out, 0, 32);
-    md5_stream(fp, ch_out);
-    flen = ftell(fp);
-    fclose(fp);
-    trans_ascii_to_hex(ch_out, 32, ch_out_hex);
-    ch_out_hex[32] = 0;
-    memcpy(buf, ch_out_hex, 33);
-    return flen;
-}
-
-#if defined(_WIN32) || defined(_WIN64)
-void update_file_time(const char* fname, time_t f_time)
-{
-    HANDLE hFile;
-    FILETIME ftModify;
-    ULARGE_INTEGER uli;
-    uli.QuadPart = f_time * 10000000ULL + 116444736000000000ULL;
-    ftModify.dwLowDateTime = uli.LowPart;
-    ftModify.dwHighDateTime = uli.HighPart;
-
-    wchar_t wfilename[FILE_PATH_MAX_LEN];
-    char_to_wchar(fname, wfilename, FILE_PATH_MAX_LEN, CP_ACP);
-
-    hFile = CreateFileW(wfilename, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-    {
-        return;
-    }
-
-    if (!SetFileTime(hFile, NULL, NULL, &ftModify))
-    {
-        CloseHandle(hFile);
-        return;
-    }
-
-    CloseHandle(hFile);
-}
-#elif defined(__linux__)
-void update_file_time(const char* fname, time_t f_time)
-{
-    struct timespec times[2];
-
-    // 设置访问时间和修改时间（这里只修改修改时间）
-    times[0].tv_sec = 0;  // 访问时间设为当前时间（可选）
-    times[0].tv_nsec = UTIME_OMIT;
-
-    times[1].tv_sec = f_time;  // 修改时间
-    times[1].tv_nsec = 0;
-
-    // 使用 utimensat 修改时间
-    if (utimensat(AT_FDCWD, fname, times, 0) == -1) {
-        return; // 失败
-    }
-
-    return; // 成功
-}
-#else
-//others
-#endif

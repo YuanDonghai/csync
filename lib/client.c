@@ -1,6 +1,5 @@
 #include "client.h"
 
-
 #if defined(_WIN32) || defined(_WIN64)
 int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_path, time_t s_time, int os_type)
 {
@@ -34,7 +33,7 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
             wchar_to_char(shortPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
             format_file_name(ch_path);
             s_log(LOG_DEBUG, "[client] sync directory: %s.", ch_path);
-            client_modify_os_file_name(os_type, ch_path);
+            modify_os_file_name(os_type, ch_path);
             client_create_dir(client_socket, ch_path);
             client_sync_dir(client_socket, fullPath, shortPath, s_time, os_type);
         }
@@ -42,12 +41,12 @@ int client_sync_dir(SOCKET client_socket, LPCTSTR full_dir_path, LPCTSTR dir_pat
         {
             memset(ch_path, 0, FILE_PATH_MAX_LEN);
             wchar_to_char(fullPath, ch_path, FILE_PATH_MAX_LEN, CP_ACP);
-            if (client_get_file_time(ch_path) < s_time)
+            if (file_get_modify_time(ch_path) < s_time)
             {
                 memset(short_name, 0, FILE_PATH_MAX_LEN);
                 wchar_to_char(shortPath, short_name, FILE_PATH_MAX_LEN, CP_ACP);
                 format_file_name(short_name);
-                client_modify_os_file_name(os_type, short_name);
+                modify_os_file_name(os_type, short_name);
                 // client_sync_file(client_socket, ch_path, short_name);
 
                 if (findFileData.nFileSizeHigh == 0 && findFileData.nFileSizeLow == 0)
@@ -121,77 +120,8 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     return 0;
 }
 
-long client_get_file_time(const char* fname)
-{
-    HANDLE hFile;
-    FILETIME ftCreate, ftAccess, ftModify;
-    SYSTEMTIME stUTC, stLocal;
-    time_t fileTime;
-    wchar_t wfilename[FILE_PATH_MAX_LEN];
-    char_to_wchar(fname, wfilename, FILE_PATH_MAX_LEN, CP_ACP);
-    hFile = CreateFile(wfilename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (hFile == INVALID_HANDLE_VALUE)
-    {
-        return 0;
-    }
-
-    if (!GetFileTime(hFile, &ftCreate, &ftAccess, &ftModify))
-    {
-        CloseHandle(hFile);
-        return 0;
-    }
-
-    CloseHandle(hFile);
-    /*
-    if (!FileTimeToSystemTime(&ftModify, &stUTC))
-    {
-        return 0;
-    }
-
-    if (!SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal))
-    {
-        return 0;
-    }
-
-    SYSTEMTIME stLocalToFT;
-    if (!SystemTimeToFileTime(&stLocal, &ftModify))
-    {
-        return 0;
-    }
-    */
-
-    ULARGE_INTEGER uli;
-    uli.LowPart = ftModify.dwLowDateTime;
-    uli.HighPart = ftModify.dwHighDateTime;
-    fileTime = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000ULL);
-
-    return fileTime;
-}
-
-long client_update_time(long timel)
-{
-    struct tm tm_time;
-    gmtime_s(&tm_time, &timel);
-
-    SYSTEMTIME st;
-    st.wYear = tm_time.tm_year + 1900;
-    st.wMonth = tm_time.tm_mon + 1;
-    st.wDay = tm_time.tm_mday;
-    st.wHour = tm_time.tm_hour;
-    st.wMinute = tm_time.tm_min;
-    st.wSecond = tm_time.tm_sec;
-    st.wMilliseconds = 0;
 
 
-    if (!SetSystemTime(&st)) {
-
-        return 1;
-    }
-
-    return 0;
-
-}
 
 #elif defined(__linux__)
 // linux
@@ -235,7 +165,7 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
         {
             format_file_name(short_name);
             s_log(LOG_DEBUG, "[client] sync directory: %s.", short_name);
-            client_modify_os_file_name(os_type, short_name);
+            modify_os_file_name(os_type, short_name);
             client_create_dir(client_socket, short_name);
             client_sync_dir(client_socket, full_path, short_name, s_time, os_type);
         }
@@ -244,8 +174,8 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
 
             format_file_name(short_name);
             format_file_name(short_name);
-            client_modify_os_file_name(os_type, short_name);
-            if (client_get_file_time(full_path) < s_time)
+            modify_os_file_name(os_type, short_name);
+            if (file_get_modify_time(full_path) < s_time)
             {
                 if (0 == file_stat.st_size)
                 {
@@ -323,34 +253,6 @@ int client_sync_connect(const char* server_address, int port, SOCKET* client_soc
     return 0;
 }
 
-long client_get_file_time(const char* fname)
-{
-    struct stat file_stat;
-
-    if (stat(fname, &file_stat) == -1)
-    {
-
-        return 0;
-    }
-
-    time_t last_modified = file_stat.st_mtime;
-
-    return last_modified;
-}
-
-long client_update_time(long timel)
-{
-    struct timeval tv;
-
-    tv.tv_sec = timel;
-    tv.tv_usec = 0;
-
-    if (settimeofday(&tv, NULL) == -1)
-    {
-        return 1;
-    }
-    return 0;
-}
 #else
 //others
 #endif
@@ -422,7 +324,7 @@ int client_sync_time(SOCKET client_socket)
             server_time = json_object_get_int64(jres);
             if (server_time > 0)
             {
-                client_update_time(server_time);
+                os_update_time(server_time);
             }
         }
         json_object_put(parsed_json);
@@ -523,14 +425,14 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
         if (0 != client_recv_sig(client_socket, file_name, short_name_utf8, sig_file_name, &ack_sig_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client recv sig error.");
-            check_remove_file(sig_file_name);
+            file_delete(sig_file_name);
             return CLIENT_ERROR_RECV_SIG;
         }
         if (0 != client_req_delta(client_socket, file_name, short_name_utf8, sig_file_name, delta_file_name, &delta_len, trans_check_sum))
         {
             s_log(LOG_ERROR, "[client] client req delta error.");
-            check_remove_file(sig_file_name);
-            check_remove_file(delta_file_name);
+            file_delete(sig_file_name);
+            file_delete(delta_file_name);
             return CLIENT_ERROR_REQ_DELTA;
         }
         if (delta_len > 9)
@@ -538,13 +440,13 @@ int client_sync_file(SOCKET client_socket, const char* file_name, const char* sh
             if (0 != client_send_delta(client_socket, delta_file_name, &delta_len))
             {
                 s_log(LOG_ERROR, "[client] client send delta error.");
-                check_remove_file(sig_file_name);
-                check_remove_file(delta_file_name);
+                file_delete(sig_file_name);
+                file_delete(delta_file_name);
                 return CLIENT_ERROR_SEND_DELTA;
             }
         }
-        check_remove_file(sig_file_name);
-        check_remove_file(delta_file_name);
+        file_delete(sig_file_name);
+        file_delete(delta_file_name);
     }
     return 0;
 }
@@ -655,7 +557,7 @@ int client_req_sig(SOCKET client_socket, const char* file_name, const char* shor
     struct json_object* node_new = json_object_new_object();
     json_object_object_add(node_new, "type", json_object_new_int(CLIENT_REQ_SIG));
     json_object_object_add(node_new, "file", json_object_new_string(short_name));
-    json_object_object_add(node_new, "time", json_object_new_int64(client_get_file_time(file_name)));
+    json_object_object_add(node_new, "time", json_object_new_int64(file_get_modify_time(file_name)));
 
     memset(ch_send, 0, SOCKET_BUF_MAX);
     //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"dir\" : \"%s\"}", CLIENT_REQ_DIR, dir_name);
@@ -724,7 +626,7 @@ int client_check_empty_file(SOCKET client_socket, const char* file_name, const c
     struct json_object* node_new = json_object_new_object();
     json_object_object_add(node_new, "type", json_object_new_int(CLIENT_CHECK_FILE_E));
     json_object_object_add(node_new, "file", json_object_new_string(short_name));
-    json_object_object_add(node_new, "time", json_object_new_int64(client_get_file_time(file_name)));
+    json_object_object_add(node_new, "time", json_object_new_int64(file_get_modify_time(file_name)));
 
     memset(ch_send, 0, SOCKET_BUF_MAX);
     //  sprintf_s(ch_send, SOCKET_BUF_MAX, "{\"type\": %d,\"dir\" : \"%s\"}", CLIENT_REQ_DIR, dir_name);
@@ -1135,7 +1037,7 @@ int client_req_new(SOCKET client_socket, const char* file_name, const char* shor
 {
     char ch_send[SOCKET_BUF_MAX];
     char ch_recv[SOCKET_BUF_MAX];
-    *file_len = int64_get_file_length(file_name);
+    *file_len = file_length_int64(file_name);
     FILE* file = fopen(file_name, "rb");
     if (!file)
     {
@@ -1242,73 +1144,4 @@ int client_send_new(SOCKET client_socket, const char* file_name, const char* sho
         return CLIENT_ERROR_SEND_NEW;
     }
     return 0;
-}
-
-int check_remove_file(const char* file_name)
-{
-    FILE* file = fopen(file_name, "rb");
-    if (file)
-    {
-        fclose(file);
-        return remove(file_name);
-    }
-    return 0;
-}
-
-void format_file_name(char* fname)
-{
-    int i = 0;
-    int start_index = 0;
-    for (i = 0;i < strlen(fname);i++)
-    {
-        if (fname[i] == '\\' || fname[i] == '/')
-        {
-            continue;
-        }
-        else
-        {
-            start_index = i;
-            break;
-        }
-    }
-    if (start_index != 0)
-    {
-        int j = 0;
-        for (i = start_index;i < strlen(fname);i++)
-        {
-            fname[j++] = fname[i];
-        }
-        fname[j] = 0;
-    }
-
-
-
-}
-
-void client_modify_os_file_name(int os_type, char* fname)
-{
-    char ch[2] = "\\/";
-    for (int i = 0;i < strlen(fname);i++)
-    {
-        if (fname[i] == ch[(os_type + 1) % 2])
-        {
-            fname[i] = ch[os_type % 2];
-        }
-    }
-}
-
-long client_get_file_length(char* fname)
-{
-    FILE* file = fopen(fname, "rb");
-    if (!file)
-    {
-        s_log(LOG_DEBUG, "config open file error. %s.", fname);
-        return -1;
-    }
-
-    fseek(file, 0, SEEK_END);
-
-    long len = ftell(file);
-    fclose(file);
-    return len;
 }

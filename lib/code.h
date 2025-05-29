@@ -58,6 +58,6 @@ int dump_json_to_file(struct json_object* json_data, const char* file_path);
 void _sleep_or_Sleep(int ms);
 static char uuid_ch[39];
 
-void long_to_kmg(long lnum, char* ch_res);
+void long_to_kmg(__int64 lnum, char* ch_res);
 
 #endif

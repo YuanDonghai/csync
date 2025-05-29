@@ -37,6 +37,7 @@ typedef int SOCKET;
 #include "protocol_sm.h"
 #include "code.h"
 #include "csync_error.h"
+#include "file_extend.h"
 
 
 #define SOCKET_BUF_MAX 4096
@@ -81,13 +82,4 @@ int client_send_delta(SOCKET client_socket, const char* delta_name, long* delta_
 int client_req_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum);
 int client_send_new(SOCKET client_socket, const char* file_name, const char* short_name, __int64* file_len, char* check_sum);
 
-
-int check_remove_file(const char* file_name);
-
-long client_get_file_time(const char* fname);
-long client_update_time(long timel);
-
-void format_file_name(char* fname);
-void client_modify_os_file_name(int os_type, char* fname);
-long client_get_file_length(char* fname);
 #endif

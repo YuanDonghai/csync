@@ -206,6 +206,11 @@ void format_path(char* path)
         {
             path[i] = 0x00;
         }
+        free(swap);
+    }
+    else
+    {
+        free(swap);
     }
 }
 
@@ -344,7 +349,7 @@ int dump_json_to_file(struct json_object* json_data, const char* file_path)
     return 0;
 }
 
-void long_to_kmg(long lnum, char* ch_res)
+void long_to_kmg(__int64 lnum, char* ch_res)
 {
     float fnum = 0;
     //const char ch_res[32];

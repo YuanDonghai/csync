@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "log.h"
+#include "file_extend.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 
