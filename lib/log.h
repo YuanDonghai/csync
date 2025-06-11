@@ -18,8 +18,6 @@ enum log_level_def
     LOG_DEBUG = 2
 };
 
-
-
 int set_log_params(char* path, int format, enum log_level_def level);
 void s_log(enum log_level_def level, const char* data, ...);
 #endif

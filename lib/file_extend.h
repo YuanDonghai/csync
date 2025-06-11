@@ -22,6 +22,17 @@
 #include <uuid/uuid.h>
 #include <wchar.h>
 #include <locale.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
 typedef __int64_t __int64;
 #else
 //others

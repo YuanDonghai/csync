@@ -19,9 +19,10 @@
 #include <uuid/uuid.h>
 #include <wchar.h>
 #include <locale.h>
+typedef __int64_t __int64;
 #else
 //others
-typedef __int64_t __int64;
+
 #endif
 
 #define FILE_PATH_MAX_LEN 4096

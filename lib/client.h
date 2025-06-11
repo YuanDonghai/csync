@@ -55,9 +55,6 @@ int client_sync_dir(SOCKET client_socket, const char* full_dir_path, const char*
 //others
 #endif
 
-
-
-
 int client_sync_connect(const char* server_address, int port, SOCKET* client_socket);
 int client_sync_path(SOCKET client_socket, const char* instance_id);
 int client_sync_time(SOCKET client_socket);
